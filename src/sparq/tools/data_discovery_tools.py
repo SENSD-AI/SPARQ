@@ -4,35 +4,40 @@ from langchain_experimental.utilities import PythonREPL
 from langgraph.types import Command
 from langchain_core.messages import ToolMessage
 
+from sparq.tools.python_repl.namespace import get_persistent_namespace
+
 
 from pathlib import Path
 from typing import Annotated
 
 @tool
-def load_dataset(file_path, sheet_name=None):
+def load_dataset(file_path, sheet_name=None, var_name: str = "df"):
     """
     Loads a dataset from either a CSV or an Excel sheet.
     Args:
         file_path (str): Path to the dataset file.
         sheet_name (str, optional): Name of the Excel sheet to load. Defaults to None.
+        var_name (str, optional): The variable name to assign the loaded dataset to in the persistent namespace. Defaults to "df".
     Returns:
     """
     import pandas as pd
-    global df
+    ns = get_persistent_namespace()
+
+    
     if file_path.endswith('.csv'):
         try:
-            df = pd.read_csv(file_path)
+            ns[var_name] = pd.read_csv(file_path)
         except Exception as e:
             return f"PythonError: {e}"
     elif file_path.endswith('.xlsx') and sheet_name:
         try:
-            df = pd.read_excel(file_path, sheet_name=sheet_name)
+            ns[var_name] = pd.read_excel(file_path, sheet_name=sheet_name)
         except Exception as e:
             return f"PythonError: {e}"
     else:
         raise ValueError("Unsupported file format or missing sheet name for Excel file.")
     
-    return f"Loaded dataset into variable `df`.\n\nPreview:\n{df.head().to_markdown()}"
+    return f"Loaded dataset into variable `df`.\n\nPreview:\n{ns[var_name].head().to_markdown()}"
 
 @tool
 def get_sheet_names(file_path):
