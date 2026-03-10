@@ -39,27 +39,21 @@ def executor_node(state: State, **kwargs):
     )
     system_prompt_str: str = system_prompt_template.invoke(input={}).to_string()
     system_prompt: SystemMessage = SystemMessage(content=system_prompt_str)
-    
-    # instantiate checkpointer to save results of each step
-    from langgraph.checkpoint.memory import InMemorySaver
-    checkpointer = InMemorySaver()
-    config = {"configurable": {"thread_id" : "1"}}
-    
+        
     # create the ReAct agent
     agent = create_react_agent(
         model=llm,
         tools=_tools,
         prompt=system_prompt,
         response_format=(prompt, ExecutorOutput),
-        checkpointer=checkpointer
     )
     
     # FIXME: Grab the code from tool call args and results from tool call results (OutputSchema)
-    def process_step(results: dict, step_description, step_index, config):
-        agent_input = {"messages": [{"role": "user", "content": step_description}]}
-        response = agent.invoke(agent_input, config)
+    def process_step(results: dict, step_description, step_index, prior_messages: list):
+        agent_input = {"messages": prior_messages + [{"role": "user", "content": step_description}]}
+        response = agent.invoke(agent_input)
         structured_response = response["structured_response"]
-
+        
         # store response in results_dict
         outer_dict_key = f"Step {step_index}: {step_description}"
         results[outer_dict_key] = {} # make each key a dict
@@ -73,12 +67,13 @@ def executor_node(state: State, **kwargs):
         inner_dict['wants'] = structured_response.wants
         inner_dict['misc'] = structured_response.misc    
         
-        return results 
+        return results, response["messages"]
     
     results = {}
+    prior_messages = []
     for i, step in enumerate(plan.steps):
         step_description = step.step_description
-        results = process_step(results, step_description, i+1, config)
+        results, prior_messages = process_step(results, step_description, i+1, prior_messages)
         state['executor_results'] = results
 
     return state

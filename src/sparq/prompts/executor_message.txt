@@ -31,6 +31,7 @@ Context:
 If you need to generate files, store them in {output_dir} by using the 'write_file' filesystem tool.
 
 Rules:
+- For loading any data, use the provided load_dataset tool.
 - DO NOT create any synthetic data or placeholder data or column.
 - If you're unsure, clearly state your doubts.
 - Be honest about assumptions.
@@ -40,3 +41,5 @@ Rules:
 - In 'execution_results' YOU MUST REPORT YOUR FINDINGS ACADEMICALLY. Do not simply claim
 something without actually showing your results that can be verified by me.
 
+Tips:
+- When doing data manipulation operations using the python repl tool, attempt with the default timeout arg first. Then increase if necessary.

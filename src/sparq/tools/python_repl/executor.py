@@ -15,23 +15,24 @@ from sparq.tools.python_repl.schemas import OutputSchema, ExceptionInfo
 
 def pickle_vars(namespace: dict, original_keys: set) -> dict[str, object]:
     new_vars = {}
+    unpickleable = {}
 
     for key in namespace:
         if key not in original_keys:
-            # Grab new keys
-            value = namespace[key] 
+            value = namespace[key]
 
             # Skip modules since they can't be pickled and will be re-imported in the subprocess
             if isinstance(value, types.ModuleType):
                 continue
 
-            # Pickle value and store in new_vars
             try:
                 pickle.dumps(value)
                 new_vars[key] = value
             except (pickle.PicklingError, TypeError, AttributeError):
-                new_vars[key] = f"<unpickleable>: {type(value).__name__}"
-    
+                unpickleable[key] = type(value).__name__
+
+    if unpickleable:
+        new_vars["__unpicklable__"] = unpickleable
     return new_vars
 
 def execute_code(code: str, persist_namespace: bool = False, timeout: int = 10) -> OutputSchema:

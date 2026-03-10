@@ -15,7 +15,7 @@ def python_repl_tool(code: str, persist_namespace: bool = False, timeout: int = 
     Args:
         code: The Python code to execute.
         persist_namespace: Whether to persist the namespace across executions. Default is False.
-        timeout: The maximum time in seconds to allow for code execution. Default is 5 minutes (300 seconds).
+        timeout: The maximum time in seconds to allow for code execution. Recommended Default is 5 minutes (300 seconds).
 
     Returns:
         str: The formatted message is shown to the LLM.
