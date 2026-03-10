@@ -19,8 +19,9 @@ def load_dataset(file_path, sheet_name=None, var_name='df'):
     Args:
         file_path (str): Path to the dataset file.
         sheet_name (str, optional): Name of the Excel sheet to load. Defaults to None.
-        var_name (str, optional): Name to store dataframe in. By default it's 'df'.
+        var_name (str, optional): Name to store dataframe in. By default it's 'df'. Use this to handle multiple datasets under one context.
     Returns:
+        str: A confirmation message with a preview of the loaded dataset.
     """
     import pandas as pd
     
