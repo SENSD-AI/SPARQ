@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict
 import os
 import sys
+from datetime import datetime as dt
 
 import appdirs as ad
 from dotenv import load_dotenv
@@ -18,7 +19,10 @@ class Settings:
     - config_path: Path to the LLM configuration TOML file.
     - prompts_dir: Directory containing prompt text files.
     """
-    def __init__(self, prompts_dir: Path = None, config_path: Path = None, env_path: Path = None):
+    def __init__(self, 
+                 prompts_dir: Path = None, 
+                 config_path: Path = None, 
+                 env_path: Path = None):
         # Set package and project root directories
         self.PACKAGE_DIR = get_package_dir()
         self.PROJECT_ROOT = get_project_root()
@@ -39,6 +43,11 @@ class Settings:
 
         self.LLM_CONFIG = self.CONFIG['llm_config']
         self.OUTPUT_DIR = Path(os.path.expanduser(self.CONFIG['paths']['OUTPUT_DIR']))
+        try:
+            self.OUTPUT_STEM = self.CONFIG['paths']['OUTPUT_STEM']
+        except KeyError:
+            self.OUTPUT_STEM = None
+
         self.DATA_MANIFEST_PATH = Path(os.path.expanduser(self.CONFIG['paths']['DATA_MANIFEST_PATH']))
         self.DATA_MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -97,9 +106,23 @@ class Settings:
         return config
     
     def _create_output_dirs(self):
-        """Create output directories if they don't exist."""
+        """Creates timestamped output directories.
+        
+        Output structure:
+        - {OUTPUT_DIR}/{stem}_{timestamp_str}/
+            - router/
+            - planner/
+            - executor/
+            - aggregator/
+        
+        """
+
+        timestamp_dt: dt = dt.now()
+        timestamp_str: str = timestamp_dt.strftime("%d-%m-%Y_%H-%M-%S")
+        stem = "" if self.OUTPUT_STEM is None else self.OUTPUT_STEM
+
         dirs = [
-            self.OUTPUT_DIR,
+            Path(f"{self.OUTPUT_DIR}/{stem}_{timestamp_str}"),
             self.ROUTER_OUTPUT_DIR,
             self.PLANNER_OUTPUT_DIR,
             self.EXECUTOR_OUTPUT_DIR,

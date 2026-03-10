@@ -2,6 +2,7 @@ test_query = "What are the main factors contributing to salmonella rates in Miss
 
 [paths]
 OUTPUT_DIR = "~/tmp/sparq/output"
+# OUTPUT_STEM = "" # Stem for output files, e.g., setting to 'output' would give "output_<timestamp>.json"
 DATA_MANIFEST_PATH = "~/.config/sparq/data/manifest.json"
 PROMPTS_DIR = "prompts"
 
