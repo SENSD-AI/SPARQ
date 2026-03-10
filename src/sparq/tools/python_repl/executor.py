@@ -35,7 +35,7 @@ def pickle_vars(namespace: dict, original_keys: set) -> dict[str, object]:
         new_vars["__unpicklable__"] = unpickleable
     return new_vars
 
-def execute_code(code: str, persist_namespace: bool = False, timeout: int = 10) -> OutputSchema:
+def execute_code(code: str, persist_namespace: bool = False, timeout: int = 2*60) -> OutputSchema:
     """
     Execute Python code with optional namespace persistence and timeout.
     

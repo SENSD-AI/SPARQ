@@ -19,6 +19,7 @@ if PROJECT_ROOT is None:
     raise RuntimeError("Could not determine project root directory.")
 
 CONFIG_PATH = PROJECT_ROOT / "config.toml"
+ENV_PATH = PROJECT_ROOT / ".env"
 
 QUESTIONS = [
     # "What is the most common food vehicle associated with salmonella outbreaks?",
@@ -48,7 +49,8 @@ def main():
         questions = QUESTIONS
 
     settings = Settings(
-        config_path=CONFIG_PATH
+        config_path=CONFIG_PATH,
+        env_path=ENV_PATH,
     )
     
     agentic_system = Agentic_system(settings)
