@@ -30,12 +30,12 @@ def _make_bedrock(model: str, provider: str):
     # Kept for interface consistency with other factories.
     _ = provider
 
-    region = os.getenv("AWS_DEFAULT_REGION")
+    region = os.getenv("AWS_REGION")
     profile = os.getenv("AWS_PROFILE")
 
     missing = []
     if not region:
-        missing.append("AWS_DEFAULT_REGION")
+        missing.append("AWS_REGION")
     if not profile:
         missing.append("AWS_PROFILE")
     if missing:
