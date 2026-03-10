@@ -7,7 +7,7 @@ PROMPTS_DIR = "prompts"
 
 [llm_config]
 [llm_config.router]
-model = "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+model = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 provider = "aws_bedrock"
 
 [llm_config.planner]
@@ -15,7 +15,7 @@ model = "us.anthropic.claude-3-5-haiku-20241022-v1:0"
 provider = "aws_bedrock"
 
 [llm_config.executor]
-model = "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+model = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 provider = "aws_bedrock"
 
 [llm_config.aggregator]
