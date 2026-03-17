@@ -18,6 +18,9 @@ def python_repl_tool(code: str = "", persist_namespace: bool = False) -> tuple[s
 
     Returns:
         str: The formatted message is shown to the LLM.
+
+    Notes
+    - Functions are not persisted across executions because they are not picklable. They are instead stored in the `__unpicklable__` key of the namespace.
     """
     execution_result = execute_code(code, persist_namespace=persist_namespace)
     

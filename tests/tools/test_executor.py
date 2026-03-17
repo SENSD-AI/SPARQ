@@ -1,15 +1,14 @@
 import unittest
 
 from sparq.tools.python_repl.executor import execute_code
-from sparq.tools.python_repl.namespace import get_persistent_namespace
+from sparq.tools.python_repl.namespace import clear_persistent_namespace
 
 
 class TestExecutor(unittest.TestCase):
-    
+
     def setUp(self):
         """Clear persistent namespace before each test."""
-        namespace = get_persistent_namespace()
-        namespace.clear()
+        clear_persistent_namespace()
     
     def test_basic_execution(self):
         """Test basic variable assignment and expression evaluation."""
@@ -43,9 +42,7 @@ class TestExecutor(unittest.TestCase):
         self.assertTrue(result2.success)
         self.assertEqual(result2.output, "4.0")
         
-        # Verify math is in persistent namespace
-        persistent_ns = get_persistent_namespace()
-        self.assertIn("math", persistent_ns.get("__modules__", {}))
+        # Persistence already verified by result2.success above
 
     def test_persistence(self):
         """Test that variables persist across executions."""
@@ -106,7 +103,7 @@ class TestExecutor(unittest.TestCase):
         self.assertEqual(result.error.type, "TimeoutError")
 
     def test_function_definition(self):
-        """Test that functions can be defined and called."""
+        """Test that functions are correctly identified as unpicklable."""
         code = """
 def add(a, b):
     return a + b
@@ -117,7 +114,7 @@ add(3, 5)
         
         self.assertTrue(result.success)
         self.assertEqual(result.output, "8")
-        self.assertIn("add", result.namespace)
+        self.assertIn("add", result.namespace.get("__unpicklable__", {}))
 
     def test_recursive_function(self):
         """Test that recursive functions work without hanging."""
@@ -136,13 +133,11 @@ fib(10)
 
     def test_unpicklable_object(self):
         """Test handling of unpicklable objects."""
-        code = "f = lambda x: x * 2"
+        code = "f = lambda x: x * 2"                                        # Lambda functions are not picklable
         result = execute_code(code, persist_namespace=False, timeout=5)
         
         self.assertTrue(result.success)
-        self.assertIn("f", result.namespace)
-        # Should be a placeholder string for unpicklable object
-        self.assertTrue(result.namespace["f"].startswith("<unpickleable>"))
+        self.assertIn("f", result.namespace['__unpicklable__'])
 
     def test_print_statements(self):
         """Test that print statements are captured."""

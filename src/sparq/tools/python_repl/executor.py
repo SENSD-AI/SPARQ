@@ -1,17 +1,20 @@
 from contextlib import redirect_stderr, redirect_stdout
 import io
+import json
 import multiprocessing as mp
-from queue import Empty
+import os
+import pickle
+import tempfile
 import traceback
 import types
-import pickle
 
 from typing import Optional, List
 
 from sparq.tools.python_repl.ast_utils import extract_last_expression
-from sparq.tools.python_repl.namespace import get_persistent_namespace, clean_namespace, get_modules_in_namespace
+from sparq.tools.python_repl.namespace import get_persistent_ns_path, clean_namespace, get_modules_in_namespace
 from sparq.tools.python_repl.package_manager import PackageUtils as putils
 from sparq.tools.python_repl.schemas import OutputSchema, ExceptionInfo
+
 
 def pickle_vars(namespace: dict, original_keys: set) -> dict[str, object]:
     new_vars = {}
@@ -35,108 +38,115 @@ def pickle_vars(namespace: dict, original_keys: set) -> dict[str, object]:
         new_vars["__unpicklable__"] = unpickleable
     return new_vars
 
+
+def _namespace_summary(namespace: dict) -> dict:
+    """JSON-safe summary of namespace variables for returning to the parent process.
+
+    Complex objects (e.g. numpy arrays, DataFrames) are represented as type strings
+    so the parent process never needs to import scientific packages to deserialize them.
+    """
+    summary = {}
+    for key, value in namespace.items():
+        try:
+            json.dumps(value)
+            summary[key] = value
+        except (TypeError, ValueError):
+            summary[key] = f"<{type(value).__module__}.{type(value).__name__}>"
+    return summary
+
+
 def execute_code(code: str, persist_namespace: bool = False, timeout: int = 2*60) -> OutputSchema:
     """
     Execute Python code with optional namespace persistence and timeout.
-    
+
     Args:
         code: Python code to execute
         persist_namespace: Whether to persist variables across executions
         timeout: Maximum execution time in seconds
-        
+
     Returns:
-        OutputSchema containing execution results, including output, errors, and namespace
+        OutputSchema containing execution results, including output, errors, and a
+        JSON-safe namespace summary (complex objects shown as type strings).
     """
     if persist_namespace:
-        namespace = get_persistent_namespace() # Use module-level namespace for persistence
+        ns_path = get_persistent_ns_path()
+        ns_is_temp = False
     else:
-        namespace = {} # Fresh namespace for non-persistent execution
-    
-    # Get modules from namespace to re-import in subprocess
-    modules = namespace.get("__modules__", {})
-    
-    result = _execute_code_in_new_process(code, timeout=timeout, new_namespace=namespace, modules=modules, persist_namespace=persist_namespace)
+        ns_fd, ns_path = tempfile.mkstemp(suffix="_ns.pkl")
+        with os.fdopen(ns_fd, "wb") as f:
+            pickle.dump({}, f)
+        ns_is_temp = True
+
+    result_fd, result_path = tempfile.mkstemp(suffix="_result.json")
+    os.close(result_fd)
+
+    result = _execute_code_in_new_process(code, timeout=timeout, ns_path=ns_path, result_path=result_path)
 
     # On import error, install the package if whitelisted and retry execution
-    # Loop to handle multiple missing packages (max 5 retries)
     max_retries = 5
     retries = 0
     while result.error and result.error.type in ("ModuleNotFoundError", "ImportError") and retries < max_retries:
         missing_package = putils.extract_package_name_error(result.error.message)
 
-        # If no package found, break
         if not missing_package:
             break
-            
+
         install_result = putils.install_package(missing_package)
         if not install_result["success"]:
-            # Update error with installation failure info
             result.error.extra_context["package_install_failed"] = {
                 "package": missing_package,
                 "message": install_result["message"]
             }
             break
-        
-        # Retry execution after successful installation
-        result = _execute_code_in_new_process(code, timeout=timeout, new_namespace=namespace, modules=modules, persist_namespace=persist_namespace)
+
+        result = _execute_code_in_new_process(code, timeout=timeout, ns_path=ns_path, result_path=result_path)
         retries += 1
-    
+
+    if ns_is_temp:
+        try:
+            os.unlink(ns_path)
+        except FileNotFoundError:
+            pass
+    try:
+        os.unlink(result_path)
+    except FileNotFoundError:
+        pass
+
     return result
 
 
-def _execute_code_in_new_process(code: str, timeout: int = 10, new_namespace: Optional[dict] = None, modules: Optional[dict] = None, persist_namespace: bool = False) -> OutputSchema:
+def _execute_code_in_new_process(code: str, timeout: int = 10, ns_path: str = "", result_path: str = "") -> OutputSchema:
     """
-    Execute python code with optional namespace persistence and timeout.
+    Execute Python code in a subprocess, reading/writing namespace via files.
 
     Args:
-        code (str): The Python code to execute.
-        timeout (int): Maximum time in seconds to allow for code execution.
-        new_namespace (Optional[dict]): Namespace to use for code execution.
-        modules (Optional[dict]): Modules to re-import in the execution namespace.
-        persist_namespace (bool): Whether to persist the namespace after execution.
+        code: Python code to execute
+        timeout: Maximum execution time in seconds
+        ns_path: Path to the namespace pickle file (read and updated by child)
+        result_path: Path where the child writes a JSON result
 
     Returns:
-        OutputSchema: The result of the code execution, including output, error, and namespace.
+        OutputSchema with output, error, success, and JSON-safe namespace summary.
+        The parent process never deserializes numpy/pandas objects.
     """
-
-    # Extract the last expression from the code to evaluate it separately. Catch any syntax errors.
     statements, expr, syntax_error = extract_last_expression(code)
     if syntax_error:
         return OutputSchema(
             output="",
-            error=ExceptionInfo(
-                type="SyntaxError",
-                message=str(syntax_error),
-                traceback="",
-                extra_context={}
-            ),
-            namespace=new_namespace or {},
+            error=ExceptionInfo(type="SyntaxError", message=str(syntax_error), traceback="", extra_context={}),
+            namespace={},
             success=False
         )
-    
-    extra_time = 5
-    ctx = mp.get_context("spawn") # New process context with no shared state
-    queue = ctx.Queue()
 
-    process = ctx.Process(
-        target=_target, 
-        args=(
-            statements,
-            expr,
-            queue,
-            new_namespace,
-            modules or {},
-            timeout + extra_time
-            )
-        )
-    
+    ctx = mp.get_context("spawn")
+    process = ctx.Process(target=_target, args=(statements, expr, ns_path, result_path))
     process.start()
     process.join(timeout)
 
-    # If process is still alive after timeout, terminate it
     if process.is_alive():
         process.terminate()
-        result = OutputSchema(
+        process.join()
+        return OutputSchema(
             output="",
             error=ExceptionInfo(
                 type="TimeoutError",
@@ -144,136 +154,137 @@ def _execute_code_in_new_process(code: str, timeout: int = 10, new_namespace: Op
                 traceback="",
                 extra_context={"timeout_seconds": timeout}
             ),
-            namespace=new_namespace or {},
+            namespace={},
             success=False
         )
-    else:
-        try:
-            result = queue.get(timeout=5) # short timeout since process already finished
-        except Empty:
-            # Process finished but queue is empty
-            result = OutputSchema(
-                output="",
-                error=ExceptionInfo(
-                    type="QueueEmptyError",
-                    message="Result queue was empty.",
-                    traceback="",
-                    extra_context={}
-                ),
-                namespace=new_namespace or {},
-                success=False
-            )
-        except Exception as e:
-            # Catch any other errors related to queue retrieval
-            result = OutputSchema(
-                output="",
-                error=ExceptionInfo(
-                    type=type(e).__name__,
-                    message=str(e),
-                    traceback="",
-                    extra_context={}
-                ),
-                namespace=new_namespace or {},
-                success=False
-            )
+
+    try:
+        with open(result_path, "r") as f:
+            data = json.load(f)
+        return OutputSchema(
+            output=data["output"],
+            error=ExceptionInfo(**data["error"]) if data["error"] else None,
+            namespace=data["namespace"],
+            success=data["success"]
+        )
+    except FileNotFoundError:
+        return OutputSchema(
+            output="",
+            error=ExceptionInfo(type="ResultMissingError", message="Result file was not written.", traceback="", extra_context={}),
+            namespace={},
+            success=False
+        )
+    except Exception as e:
+        return OutputSchema(
+            output="",
+            error=ExceptionInfo(type=type(e).__name__, message=str(e), traceback="", extra_context={}),
+            namespace={},
+            success=False
+        )
 
 
-    # Update the namespace if execution was successful and persistence is desired
-    if result.success and persist_namespace:
-        new_namespace.update(result.namespace)
-
-    return result
-
-def _target(statements: Optional[List[str]], expr: str, queue: mp.Queue, namespace: dict, modules: dict, timeout: int) -> None:
+def _target(statements: Optional[List[str]], expr: str, ns_path: str, result_path: str) -> None:
     """
-    Target function for multiprocessing execution with stdout/stderr
+    Target function for subprocess execution.
 
-    - Catches Any Exception (SyntaxError should be caught earlier)
+    - Reads namespace from ns_path
+    - Executes code
+    - On success: merges new variables back into ns_path
+    - Writes a JSON result to result_path (never contains raw numpy/pandas objects)
     """
+    result = OutputSchema(output="", error=None, success=False, namespace={})
+
+    try:
+        with open(ns_path, "rb") as f:
+            namespace = pickle.load(f)
+    except Exception as e:
+        result = OutputSchema(
+            output="",
+            error=ExceptionInfo(type=type(e).__name__, message=f"Failed to load namespace: {e}", traceback=traceback.format_exc(), extra_context={}),
+            success=False,
+            namespace={}
+        )
+        with open(result_path, "w") as f:
+            json.dump(result.model_dump(), f)
+        return
+
     # Re-import modules from previous executions
-    for var_name, module_name in modules.items():
+    for var_name, module_name in namespace.get("__modules__", {}).items():
         try:
             namespace[var_name] = __import__(module_name)
         except ImportError:
-            pass # Module not available. Skip
+            pass
 
-    # Track original keys
     original_keys = set(namespace.keys())
-
     stdout_buffer = io.StringIO()
     stderr_buffer = io.StringIO()
     try:
         with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
-            # If there are statements, execute them with namespace 
             if statements:
                 exec("\n".join(statements), namespace)
 
             output = ""
             if expr:
                 eval_result = eval(expr, namespace)
-                # If eval returns a value, convert it to string for output
                 if eval_result is None:
-                    stdout_text = stdout_buffer.getvalue().strip() # Capture any print statements when eval returns None
-                    output = stdout_text if stdout_text else "None" # Eval result is None so return "None"
+                    stdout_text = stdout_buffer.getvalue().strip()
+                    output = stdout_text if stdout_text else "None"
                 else:
                     output = str(eval_result)
             else:
-                # No expression to evaluate, capture stdout if available
                 stdout_text = stdout_buffer.getvalue().strip()
                 output = stdout_text if stdout_text else ""
-        
-        # Check stderr for any captured errors and append
+
         stderr_text = stderr_buffer.getvalue().strip()
         if stderr_text:
             output = f"{output}\n[stderr]: {stderr_text}" if output else f"[stderr]: {stderr_text}"
 
-        # Clean the namespace by removing any built-in or special variables
-        # Pickle variables (skip modules)
-        # Get names of modules
+        # Build picklable vars for new variables introduced in this execution
         clean_namespace(namespace)
         picklable_vars = pickle_vars(namespace, original_keys)
-        modules = get_modules_in_namespace(namespace)
+        mods = get_modules_in_namespace(namespace)
+        if mods:
+            picklable_vars["__modules__"] = mods
 
-        if modules:
-            picklable_vars["__modules__"] = modules
+        # Merge new vars into the namespace file
+        with open(ns_path, "rb") as f:
+            existing_ns = pickle.load(f)
+        existing_ns.update(picklable_vars)
+        with open(ns_path, "wb") as f:
+            pickle.dump(existing_ns, f)
 
         result = OutputSchema(
             output=output,
             error=None,
-            namespace=picklable_vars, # Only include picklable variables in the namespace
-            success=True
+            success=True,
+            namespace=_namespace_summary(picklable_vars),
         )
-    
-    # Catches Any Exception (SyntaxError should be caught earlier)
-    except Exception as e:
-        # Clean the namespace by removing any built-in or special variables
-        clean_namespace(namespace)
 
-        # Collect any stdout and stderr output even in case of exception
+    except Exception as e:
+        clean_namespace(namespace)
         stdout_text = stdout_buffer.getvalue().strip()
         stderr_text = stderr_buffer.getvalue().strip()
-        context_data = {"stderr": stderr_text} if stderr_text else {}
-
         result = OutputSchema(
             output=stdout_text,
             error=ExceptionInfo(
                 type=type(e).__name__,
                 message=str(e),
                 traceback=traceback.format_exc(),
-                extra_context=context_data
+                extra_context={"stderr": stderr_text} if stderr_text else {}
             ),
-            namespace={}, # Return empty namespace on error since variables may be in inconsistent state
-            success=False
+            success=False,
+            namespace={},
         )
 
     finally:
         try:
-            queue.put(result, timeout=timeout)
+            with open(result_path, "w") as f:
+                json.dump(result.model_dump(), f)
         except Exception as e:
-            print(f"Failed to put result in queue: {e}")
-            pass # Nothing we can do if putting result in queue fails
+            print(f"Failed to write result: {e}")
 
-if __name__ == "__main__":    
+
+if __name__ == "__main__":
     print("Testing tool python repl tool")
 
     code_snippet = """

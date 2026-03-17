@@ -33,6 +33,7 @@ dependencies = [
     "appdirs==1.4.4",
     "boto3==1.40.55",
     "botocore==1.40.55",
+    "cloudpickle>=3.1.2",
 ]
 [project.scripts]
 sparq = "sparq.__main__:main"

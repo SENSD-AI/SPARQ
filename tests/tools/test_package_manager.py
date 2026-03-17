@@ -3,7 +3,7 @@ import subprocess
 import sys
 
 from sparq.tools.python_repl.executor import execute_code
-from sparq.tools.python_repl.namespace import get_persistent_namespace
+from sparq.tools.python_repl.namespace import clear_persistent_namespace
 from sparq.tools.python_repl.package_manager import PackageManager, PackageUtils
 
 class TestPackageManagerSmoke(unittest.TestCase):
@@ -55,8 +55,7 @@ class TestPackageInstallation(unittest.TestCase):
     
     def setUp(self):
         """Clear persistent namespace before each test."""
-        namespace = get_persistent_namespace()
-        namespace.clear()
+        clear_persistent_namespace()
 
     @classmethod
     def setUpClass(cls):
