@@ -71,7 +71,7 @@ class Agentic_system:
         self._build_graph()
 
         input_data = {"query": user_query} # This will go into the State schema expected by the graph
-        async for chunk in self.graph.astream(input=input_data, stream_mode="updates"):
+        async for chunk in self.graph.astream(input=input_data, stream_mode="updates", config={'recursion_limit': 100}):
             print(chunk)
 
     def save_results(self):

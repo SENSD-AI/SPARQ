@@ -5,7 +5,7 @@ from langgraph.types import Command
 from langchain_core.messages import ToolMessage
 
 import pickle
-from sparq.tools.python_repl.namespace import get_persistent_ns_path
+from sparq.tools.python_repl.namespace import get_persistent_ns_path, load_ns
 
 
 from pathlib import Path
@@ -37,8 +37,7 @@ def load_dataset(file_path, sheet_name=None, var_name: str = "df"):
         raise ValueError("Unsupported file format or missing sheet name for Excel file.")
 
     ns_path = get_persistent_ns_path()
-    with open(ns_path, "rb") as f:
-        ns = pickle.load(f)
+    ns = load_ns(ns_path)
     ns[var_name] = df
     with open(ns_path, "wb") as f:
         pickle.dump(ns, f)

@@ -11,7 +11,7 @@ import types
 from typing import Optional, List
 
 from sparq.tools.python_repl.ast_utils import extract_last_expression
-from sparq.tools.python_repl.namespace import get_persistent_ns_path, clean_namespace, get_modules_in_namespace
+from sparq.tools.python_repl.namespace import get_persistent_ns_path, load_ns, clean_namespace, get_modules_in_namespace
 from sparq.tools.python_repl.package_manager import PackageUtils as putils
 from sparq.tools.python_repl.schemas import OutputSchema, ExceptionInfo
 
@@ -195,8 +195,7 @@ def _target(statements: Optional[List[str]], expr: str, ns_path: str, result_pat
     result = OutputSchema(output="", error=None, success=False, namespace={})
 
     try:
-        with open(ns_path, "rb") as f:
-            namespace = pickle.load(f)
+        namespace = load_ns(ns_path)
     except Exception as e:
         result = OutputSchema(
             output="",
@@ -247,8 +246,7 @@ def _target(statements: Optional[List[str]], expr: str, ns_path: str, result_pat
             picklable_vars["__modules__"] = mods
 
         # Merge new vars into the namespace file
-        with open(ns_path, "rb") as f:
-            existing_ns = pickle.load(f)
+        existing_ns = load_ns(ns_path)
         existing_ns.update(picklable_vars)
         with open(ns_path, "wb") as f:
             pickle.dump(existing_ns, f)

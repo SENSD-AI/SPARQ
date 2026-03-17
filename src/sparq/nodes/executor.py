@@ -3,6 +3,7 @@ from sparq.schemas.output_schemas import Plan, ExecutorOutput
 from sparq.settings import Settings
 from sparq.utils import helpers
 from sparq.tools.python_repl.python_repl_tool import python_repl_tool
+from sparq.tools.python_repl.namespace import get_persistent_ns_path, load_ns
 from sparq.tools.filesystemtools import filesystemtools
 from sparq.tools.data_discovery_tools import load_dataset, get_sheet_names, find_csv_excel_files, get_cached_dataset_path
 
@@ -10,20 +11,51 @@ from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 from langchain_core.messages import SystemMessage
 from langgraph.prebuilt import create_react_agent
 
+
+def _build_context(results: dict) -> str:
+    """
+    Build a context string for the current step based on previous results and the current namespace.
+
+    What is added to the context?
+    - Previously completed steps and their results
+    - Notes or miscellaneous information from previous steps
+    - Variables currently in the namespace and their types
+
+    """
+    lines = []
+
+    if results:
+        lines.append("Previously completed steps:")
+        for step, data in results.items():
+            lines.append(f"\n{step}")
+            lines.append(f"  Results: {data['execution_results']}")
+            if data['misc']:
+                lines.append(f"  Notes: {data['misc']}")
+
+    ns = load_ns(get_persistent_ns_path())
+    ns_vars = {k: type(v).__name__ for k, v in ns.items() if not k.startswith("__")}
+    if ns_vars:
+        lines.append("\nVariables currently in namespace:")
+        for var, typename in ns_vars.items():
+            lines.append(f"  {var}: {typename}")
+
+    return "\n".join(lines)
+
+
 def executor_node(state: State, **kwargs):
     """
     Execute the plan
     """
     print("Executing plan to answer your query.")
-    
+
     plan: Plan = state['plan']
     llm = kwargs['llm']
     prompt = kwargs['prompt']
     output_dir = kwargs['output_dir']
-    
+
     data_manifest = state['data_manifest']
     df_summaries = state['df_summaries']
-    
+
     _tools = [
         load_dataset,
         get_sheet_names,
@@ -31,7 +63,7 @@ def executor_node(state: State, **kwargs):
         find_csv_excel_files,
         get_cached_dataset_path,
     ] + (filesystemtools(working_dir=str(output_dir), selected_tools='all'))
-    
+
     system_prompt_template: BasePromptTemplate = PromptTemplate.from_template(prompt).partial(
         data_manifest=str(data_manifest),
         df_summaries=str(df_summaries),
@@ -39,7 +71,7 @@ def executor_node(state: State, **kwargs):
     )
     system_prompt_str: str = system_prompt_template.invoke(input={}).to_string()
     system_prompt: SystemMessage = SystemMessage(content=system_prompt_str)
-        
+
     # create the ReAct agent
     agent = create_react_agent(
         model=llm,
@@ -47,33 +79,29 @@ def executor_node(state: State, **kwargs):
         prompt=system_prompt,
         response_format=(prompt, ExecutorOutput),
     )
-    
-    # FIXME: Grab the code from tool call args and results from tool call results (OutputSchema)
-    def process_step(results: dict, step_description, step_index, prior_messages: list):
-        agent_input = {"messages": prior_messages + [{"role": "user", "content": step_description}]}
+
+    def process_step(results: dict, step_description, step_index):
+        context = _build_context(results)
+        user_content = f"{context}\n\nYour current task:\n{step_description}" if context else step_description
+        agent_input = {"messages": [{"role": "user", "content": user_content}]}
         response = agent.invoke(agent_input)
         structured_response = response["structured_response"]
-        
-        # store response in results_dict
+
         outer_dict_key = f"Step {step_index}: {step_description}"
-        results[outer_dict_key] = {} # make each key a dict
-        inner_dict = results[outer_dict_key] # create reference to inner dict
-        
-        inner_dict['code'] = structured_response.code if structured_response.code is not None else ""
-        inner_dict['previously_done'] = structured_response.previously_done if structured_response.previously_done is not None else ""
-        inner_dict['execution_results'] = structured_response.execution_results
-        inner_dict['files_generated'] = structured_response.files_generated
-        inner_dict['assumptions'] = structured_response.assumptions
-        inner_dict['wants'] = structured_response.wants
-        inner_dict['misc'] = structured_response.misc    
-        
-        return results, response["messages"]
-    
+        results[outer_dict_key] = {
+            'execution_results': structured_response.execution_results,
+            'files_generated': structured_response.files_generated,
+            'misc': structured_response.misc,
+        }
+
+        return results
+
     results = {}
-    prior_messages = []
     for i, step in enumerate(plan.steps):
-        step_description = step.step_description
-        results, prior_messages = process_step(results, step_description, i+1, prior_messages)
+        try:
+            results = process_step(results, step.step_description, i+1)
+        except Exception as e:
+            results[f"Step {i+1}: {step.step_description}"] = {"error": str(e)}
         state['executor_results'] = results
 
     return state

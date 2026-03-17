@@ -5,7 +5,8 @@ from langchain_experimental.utilities import PythonREPL
 from langgraph.types import Command
 from langchain_core.messages import ToolMessage
 
-from sparq.tools.python_repl.namespace import get_persistent_namespace
+import pickle
+from sparq.tools.python_repl.namespace import get_persistent_ns_path, load_ns
 
 from pathlib import Path
 from typing import Annotated
@@ -24,23 +25,27 @@ def load_dataset(file_path, sheet_name=None, var_name='df'):
         str: A confirmation message with a preview of the loaded dataset.
     """
     import pandas as pd
-    
-    ns = get_persistent_namespace()
-    
+
     if file_path.endswith('.csv'):
         try:
-            ns[var_name] = pd.read_csv(file_path)
+            df = pd.read_csv(file_path)
         except Exception as e:
             return f"PythonError: {e}"
     elif file_path.endswith('.xlsx') and sheet_name:
         try:
-            ns[var_name] = pd.read_excel(file_path, sheet_name=sheet_name)
+            df = pd.read_excel(file_path, sheet_name=sheet_name)
         except Exception as e:
             return f"PythonError: {e}"
     else:
         raise ValueError("Unsupported file format or missing sheet name for Excel file.")
-    
-    return f"Loaded dataset into variable `{var_name}`.\n\nPreview:\n{ns[var_name].head().to_markdown()}"
+
+    ns_path = get_persistent_ns_path()
+    ns = load_ns(ns_path)
+    ns[var_name] = df
+    with open(ns_path, "wb") as f:
+        pickle.dump(ns, f)
+
+    return f"Loaded dataset into variable `{var_name}`.\n\nPreview:\n{df.head().to_markdown()}"
     
 @tool
 def get_sheet_names(file_path):

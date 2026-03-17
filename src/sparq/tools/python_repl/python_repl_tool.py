@@ -22,7 +22,7 @@ def python_repl_tool(code: str = "", persist_namespace: bool = False) -> tuple[s
     Notes
     - Functions are not persisted across executions because they are not picklable. They are instead stored in the `__unpicklable__` key of the namespace.
     """
-    execution_result = execute_code(code, persist_namespace=persist_namespace)
+    execution_result = execute_code(code or "", persist_namespace=persist_namespace)
     
     # Create clean message for LLM
     if execution_result.success:

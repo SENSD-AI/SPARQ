@@ -37,10 +37,6 @@ class Router(BaseModel):
 class ExecutorOutput(BaseModel):
     """Output of the executor node"""
     step: str = Field(..., description="What you were tasked to do by the user")
-    previously_done: str = Field(..., description="What you have already done to answer the query")
-    code: str = Field(..., description="The **exact** code you wrote.")
-    execution_results: str = Field(..., description="Summary of results of running your code.")
-    files_generated: List[str] = Field(..., description="Files generated during execution")
-    assumptions: str = Field(..., description="Assumptions made during execution")
-    wants: str = Field(..., description="Further information needed to improve execution")
-    misc: str = Field(..., description="Miscellaneous information or notes")
+    execution_results: str = Field("", description="Summary of results of running your code.")
+    files_generated: List[str] = Field(default_factory=list, description="Files generated during execution")
+    misc: str = Field("", description="Anything else you want to note, e.g. caveats, observations, or next steps")

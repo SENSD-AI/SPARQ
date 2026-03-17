@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Dict, Any
 
 class PythonREPLInput(BaseModel):
-    code: str = Field(..., description="The Python code to execute.")
+    code: str | None = Field(None, description="The Python code to execute.")
     persist_namespace: bool = Field(False, description="Whether to persist the namespace across executions.")
     
 class ExceptionInfo(BaseModel):

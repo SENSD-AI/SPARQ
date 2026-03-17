@@ -27,6 +27,15 @@ def clear_persistent_namespace():
         _PERSISTENT_NS_PATH = None  # Will be recreated on next access
 
 
+def load_ns(ns_path: str) -> dict:
+    """Load namespace from a pickle file, returning an empty dict if the file is empty or corrupted."""
+    with open(ns_path, "rb") as f:
+        try:
+            return pickle.load(f)
+        except EOFError:
+            return {}
+
+
 def clean_namespace(namespace: dict):
     keys_to_remove = [key for key in namespace if key.startswith("__") and key.endswith("__") and key != "__modules__"]
     for key in keys_to_remove:

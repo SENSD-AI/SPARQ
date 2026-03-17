@@ -9,15 +9,11 @@ You will output a **JSON object** with the following structure:
 
 {{
   "step": "<what you were asked to do by the user>",
-  "previously_done": "<your memory of what's been done already or assumptions from the past>"
-  "code": "<code you ran. If you didn't run any code, just output ''>",
   "execution_results": "<report your findings. For every finding, state your code and state the result of the code.
     For example, if you computed corr between variables X, Y of dataset i, mention that and the output e.g. 
     'correlation=-.72' or if you computed the p value for a hypothesis, mention the hypothesis, the procedure you
     employed for testing the hypothesis and then the p value.>",
   "files_generated": ["<filename1>: description", "<filename2>: description"],
-  "assumptions": "<state assumptions you made>",
-  "wants": "<information you still need>",
   "misc": "<notes, comments, anything else>"
 }}
 
