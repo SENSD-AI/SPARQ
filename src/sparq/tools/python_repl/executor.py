@@ -17,7 +17,11 @@ from sparq.tools.python_repl.schemas import OutputSchema, ExceptionInfo
 
 
 def pickle_vars(namespace: dict, original_keys: set) -> dict[str, object]:
-    new_vars = {}
+    """
+    Returns a dictionary of all new objects in the namespace. 
+    If an object cannot be pickled, it is added to the "__unpicklable__" key with its type name.
+    """
+    new_objs = {}
     unpickleable = {}
 
     for key in namespace:
@@ -30,13 +34,13 @@ def pickle_vars(namespace: dict, original_keys: set) -> dict[str, object]:
 
             try:
                 pickle.dumps(value)
-                new_vars[key] = value
+                new_objs[key] = value
             except (pickle.PicklingError, TypeError, AttributeError):
                 unpickleable[key] = type(value).__name__
 
     if unpickleable:
-        new_vars["__unpicklable__"] = unpickleable
-    return new_vars
+        new_objs["__unpicklable__"] = unpickleable
+    return new_objs
 
 
 def _namespace_summary(namespace: dict) -> dict:
@@ -102,6 +106,7 @@ def execute_code(code: str, persist_namespace: bool = False, timeout: int = 2*60
         result = _execute_code_in_new_process(code, timeout=timeout, ns_path=ns_path, result_path=result_path)
         retries += 1
 
+    # Unlink temporary namespace (if created) and result files
     if ns_is_temp:
         try:
             os.unlink(ns_path)
@@ -238,16 +243,16 @@ def _target(statements: Optional[List[str]], expr: str, ns_path: str, result_pat
         if stderr_text:
             output = f"{output}\n[stderr]: {stderr_text}" if output else f"[stderr]: {stderr_text}"
 
-        # Build picklable vars for new variables introduced in this execution
+        # Build picklable objects for new variables introduced in this execution
         clean_namespace(namespace)
-        picklable_vars = pickle_vars(namespace, original_keys)
+        new_objs = pickle_vars(namespace, original_keys)
         mods = get_modules_in_namespace(namespace)
         if mods:
-            picklable_vars["__modules__"] = mods
+            new_objs["__modules__"] = mods
 
         # Merge new vars into the namespace file
         existing_ns = load_ns(ns_path)
-        existing_ns.update(picklable_vars)
+        existing_ns.update(new_objs)
         with open(ns_path, "wb") as f:
             pickle.dump(existing_ns, f)
 
@@ -255,7 +260,7 @@ def _target(statements: Optional[List[str]], expr: str, ns_path: str, result_pat
             output=output,
             error=None,
             success=True,
-            namespace=_namespace_summary(picklable_vars),
+            namespace=_namespace_summary(new_objs),
         )
 
     except Exception as e:

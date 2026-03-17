@@ -2,6 +2,7 @@ from sparq.schemas.state import State
 from sparq.schemas.output_schemas import Plan, ExecutorOutput
 from sparq.settings import Settings
 from sparq.utils import helpers
+from sparq.utils.get_llm import get_llm
 from sparq.tools.python_repl.python_repl_tool import python_repl_tool
 from sparq.tools.python_repl.namespace import get_persistent_ns_path, load_ns
 from sparq.tools.filesystemtools import filesystemtools
@@ -110,7 +111,7 @@ def test_executor(plan: Plan):
     print(f"Testing executor node with sample plan: \n {plan.pretty_print()}")
     
     settings = Settings()
-    llm = helpers.get_llm(model='o3-mini')
+    llm = get_llm(model='o3-mini')
     prompt = helpers.load_text(settings.EXECUTOR_PROMPT_PATH)
     output_dir = settings.EXECUTOR_OUTPUT_DIR
     

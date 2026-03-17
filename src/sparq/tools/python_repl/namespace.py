@@ -7,7 +7,11 @@ _PERSISTENT_NS_PATH: str | None = None
 
 
 def get_persistent_ns_path() -> str:
-    """Returns path to the persistent namespace pickle file, creating it (empty) if needed."""
+    """Returns path to the persistent namespace pickle file, creating it (empty) if needed.
+    
+    Makes a temporary file, dumps an empty dictionary into it, and returns the path. If the file already exists,
+    it returns the existing path.
+    """
     global _PERSISTENT_NS_PATH
     if _PERSISTENT_NS_PATH is None or not os.path.exists(_PERSISTENT_NS_PATH):
         fd, path = tempfile.mkstemp(suffix="_persistent_ns.pkl")
