@@ -1,9 +1,9 @@
 test_query = "What are the main factors contributing to salmonella rates in Missouri in a statistical sense?"
 
 [paths]
-OUTPUT_DIR = "~/tmp/sparq/output"
-# OUTPUT_STEM = "" # Stem for output files, e.g., setting to 'output' would give "output_<timestamp>.json"
-PROMPTS_DIR = "prompts"
+output_dir = "~/tmp/sparq/output"
+# output_stem = "" # Stem for output files, e.g., setting to 'output' would give "output_<timestamp>.json"
+prompts_dir = "prompts"
 
 [llm_config]
 [llm_config.router]
