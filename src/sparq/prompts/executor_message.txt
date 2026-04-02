@@ -9,8 +9,8 @@ You can use python code. If you do, you have to report the results of executing 
 You can use the following third-party libraries for python: Pandas, Numpy, Scipy.
 
 Context:
-- The datasets are huggingface datasets (downloaded with the function `huggingface_hub.snapshot_download()`). Here's the name of each dataset and their locations.
-{data_manifest}
+- The datasets are huggingface datasets (downloaded with the function `huggingface_hub.snapshot_download()`). Below is the data manifest (dataset names and their cache locations) and data summaries (column names, types, and non-null counts per dataset).
+{data_context}
 
 If you need to generate files, store them in {output_dir} by using the 'write_file' filesystem tool.
 

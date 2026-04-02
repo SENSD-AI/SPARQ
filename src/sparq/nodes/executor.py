@@ -54,7 +54,7 @@ def executor_node(state: State, llm_config: LLMSetting, prompt: str, output_dir:
     plan: Plan = state['plan']
     llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
 
-    data_manifest = state['data_manifest']
+    data_context = state['data_context']
 
     _tools = [
         load_dataset,
@@ -65,7 +65,7 @@ def executor_node(state: State, llm_config: LLMSetting, prompt: str, output_dir:
     ] + (filesystemtools(working_dir=str(output_dir), selected_tools='all'))
 
     system_prompt_template: BasePromptTemplate = PromptTemplate.from_template(prompt).partial(
-        data_manifest=str(data_manifest),
+        data_context=str(data_context),
         output_dir=str(output_dir)
     )
     system_prompt_str: str = system_prompt_template.invoke(input={}).to_string()
@@ -112,9 +112,11 @@ def test_executor(plan: Plan):
         ENVSettings,
         AgenticSystemSettings,
         PathSettings,
-        DATA_MANIFEST_PATH
+        DATA_MANIFEST_PATH,
+        DATA_SUMMARIES_SHORT_PATH,
     )
-    
+    from sparq.schemas.data_context import load_data_context
+
     # Load environment and system settings
     env_settings = ENVSettings()
     system_settings = AgenticSystemSettings()
@@ -126,9 +128,9 @@ def test_executor(plan: Plan):
     )
     run_dir = updated_paths.run_dir
 
-    manifest = helpers.load_data_manifest(DATA_MANIFEST_PATH)
+    data_context = load_data_context(DATA_MANIFEST_PATH, DATA_SUMMARIES_SHORT_PATH)
 
-    state = {'plan': plan, 'data_manifest': manifest}
+    state = {'plan': plan, 'data_context': data_context}
     response = executor_node(state=state, llm_config=system_settings.llm_config.executor, prompt=prompt, output_dir=run_dir)
     
     for step, result in response['executor_results'].items():

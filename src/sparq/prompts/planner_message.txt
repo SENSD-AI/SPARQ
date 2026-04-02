@@ -4,8 +4,8 @@ Your role is to use your knowledge of some datasets, provided to you, to break d
 The goal is to guide other agents or systems to carry out each step based on your plan. The questions you receive may involve topics such as food insecurity, salmonella outbreaks, socioeconomic conditions, population data, or public health.
 
 Context:
-- The datasets are huggingface datasets (downloaded with the function `huggingface_hub.snapshot_download()`). Here's the name of each dataset and their locations.
-{data_manifest}
+- The datasets are huggingface datasets (downloaded with the function `huggingface_hub.snapshot_download()`). Below is the data manifest (dataset names and their cache locations) and data summaries (column names, types, and non-null counts per dataset).
+{data_context}
 
 Output Format:
 Return your plan AND your needs (further info you think you need) as a JSON-compatible list of steps + some text about additional info you 

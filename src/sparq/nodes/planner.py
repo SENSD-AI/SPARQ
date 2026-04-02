@@ -1,12 +1,13 @@
 from sparq.schemas.state import State
 from sparq.schemas.output_schemas import Plan
+from sparq.schemas.data_context import DataContext, load_data_context
 from sparq.settings import (
     AgenticSystemSettings,
     ENVSettings,
     DATA_MANIFEST_PATH,
+    DATA_SUMMARIES_SHORT_PATH,
     LLMSetting,
 )
-from sparq.utils import helpers
 from sparq.utils.get_llm import get_llm
 
 from langgraph.prebuilt import create_react_agent
@@ -18,19 +19,18 @@ def planner_node(state: State, llm_config: LLMSetting, sys_prompt: str):
     Create a plan to answer the user query.
 
     Returns:
-        dict: A dictionary containing the generated plan and data manifest.
+        dict: A dictionary containing the generated plan and data context.
     """
     print("Making a plan to answer your query")
 
     llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
 
-    # load manifest
-    manifest: dict = helpers.load_data_manifest(DATA_MANIFEST_PATH)
-    manifest_str = str(manifest)
+    # load data context
+    data_context = load_data_context(DATA_MANIFEST_PATH, DATA_SUMMARIES_SHORT_PATH)
 
     # create system prompt
     system_prompt_template: BasePromptTemplate = PromptTemplate.from_template(sys_prompt).partial(
-        data_manifest=manifest_str,
+        data_context=str(data_context),
     )
     _system_prompt: str = system_prompt_template.invoke(input={}).to_string()
     system_prompt: SystemMessage = SystemMessage(content=_system_prompt)
@@ -53,7 +53,7 @@ def planner_node(state: State, llm_config: LLMSetting, sys_prompt: str):
     plan = response["structured_response"]
 
     print("Created plan")
-    return {'plan': plan, 'data_manifest': manifest}
+    return {'plan': plan, 'data_context': data_context}
 
 def test_planner():
     # from sparq.settings_old import Settings
