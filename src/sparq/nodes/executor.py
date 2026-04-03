@@ -102,9 +102,9 @@ def executor_node(state: State, llm_config: LLMSetting, prompt: str, output_dir:
             results = process_step(results, step.step_description, i+1)
         except Exception as e:
             results[f"Step {i+1}: {step.step_description}"] = {"error": str(e)}
-        state['executor_results'] = results
+        
 
-    return state
+    return {'executor_results': results}
 
 def test_executor(plan: Plan):
     print(f"Testing executor node with sample plan: \n {plan.pretty_print()}")
