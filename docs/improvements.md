@@ -12,6 +12,7 @@
 | Rolling context summarization in executor | Medium | High (context limit avoidance) |
 | Step dependency + parallel execution | Medium | High (throughput) |
 | State as Pydantic with reducers | Medium | Medium (robustness) |
+| Multi-route router for general use cases | High | High (product scope) |
 | Executor → planner feedback loop | High | High (resilience) |
 
 ---
@@ -165,7 +166,43 @@ def interpret_plot(file_path: str) -> str:
 
 ---
 
-## 10. Aggregator output isn't structured
+## 10. Multi-route router for general use cases
+
+**Files**: `src/sparq/nodes/router.py`, `src/sparq/schemas/output_schemas.py`, `src/sparq/system.py`
+
+The current router is binary (`route: bool`) — it only distinguishes "needs data analysis" from "answer directly." This locks the system into a single use case. As a product, the system needs to handle general queries such as image analysis, literature/research surveys, and open-ended conversation.
+
+**Proposed graph:**
+
+```
+router (enum)
+  → "data_analysis"   → planner → executor → aggregator → saver
+  → "image_analysis"  → vision_node          → aggregator → saver
+  → "research_survey" → web_search_node      → aggregator → saver
+  → "direct_answer"   →                        aggregator → saver
+```
+
+**What changes:**
+
+1. **`Router` schema** — replace `route: bool` with `route: Literal["data_analysis", "image_analysis", "research_survey", "direct_answer"]`
+
+2. **Router prompt** — describe each route with clear criteria and examples so the LLM classifies reliably
+
+3. **New nodes:**
+   - `vision_node`: multimodal LLM call on user-uploaded images; result stored in state for aggregator
+   - `web_search_node`: ReAct agent with a web search tool (e.g. Tavily) for literature surveys and general research questions
+
+4. **Aggregator becomes route-aware** — inputs differ per path (executor results dict vs. vision response vs. search results). Either normalize upstream so aggregator always sees the same shape, or make the aggregator prompt conditional on `state["route"]`
+
+5. **State** — add `vision_input: list | None` for image content blocks; `route` field typed to the new enum
+
+**The planner and executor are unchanged** — they become one branch of the conditional edges rather than the only path.
+
+**Design decision:** An alternative is to not add new nodes but instead give the executor additional tools (`interpret_plot`, web search). The planner would then include image analysis or web search steps in its plan. This is more flexible but harder to prompt reliably and couples general capabilities to the data-analysis planning machinery. Separate branches are cleaner for a product.
+
+---
+
+## 11. Aggregator output isn't structured
 
 **File**: `src/sparq/nodes/aggregator.py`
 
