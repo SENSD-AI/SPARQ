@@ -16,27 +16,24 @@ from sparq.tools.python_repl.package_manager import PackageUtils as putils
 from sparq.tools.python_repl.schemas import OutputSchema, ExceptionInfo
 
 
-def pickle_vars(namespace: dict, original_keys: set) -> dict[str, object]:
+def pickle_vars(namespace: dict) -> dict[str, object]:
     """
-    Returns a dictionary of all new objects in the namespace. 
+    Returns a dictionary of all picklable objects in the namespace (new and modified).
     If an object cannot be pickled, it is added to the "__unpicklable__" key with its type name.
     """
     new_objs = {}
     unpickleable = {}
 
-    for key in namespace:
-        if key not in original_keys:
-            value = namespace[key]
+    for key, value in namespace.items():
+        # Skip modules since they can't be pickled and will be re-imported in the subprocess
+        if isinstance(value, types.ModuleType):
+            continue
 
-            # Skip modules since they can't be pickled and will be re-imported in the subprocess
-            if isinstance(value, types.ModuleType):
-                continue
-
-            try:
-                pickle.dumps(value)
-                new_objs[key] = value
-            except (pickle.PicklingError, TypeError, AttributeError):
-                unpickleable[key] = type(value).__name__
+        try:
+            pickle.dumps(value)
+            new_objs[key] = value
+        except (pickle.PicklingError, TypeError, AttributeError):
+            unpickleable[key] = type(value).__name__
 
     if unpickleable:
         new_objs["__unpicklable__"] = unpickleable
@@ -219,7 +216,6 @@ def _target(statements: Optional[List[str]], expr: str, ns_path: str, result_pat
         except ImportError:
             pass
 
-    original_keys = set(namespace.keys())
     stdout_buffer = io.StringIO()
     stderr_buffer = io.StringIO()
     try:
@@ -243,9 +239,9 @@ def _target(statements: Optional[List[str]], expr: str, ns_path: str, result_pat
         if stderr_text:
             output = f"{output}\n[stderr]: {stderr_text}" if output else f"[stderr]: {stderr_text}"
 
-        # Build picklable objects for new variables introduced in this execution
+        # Build picklable objects for all variables in the namespace (new and modified)
         clean_namespace(namespace)
-        new_objs = pickle_vars(namespace, original_keys)
+        new_objs = pickle_vars(namespace)
         mods = get_modules_in_namespace(namespace)
         if mods:
             new_objs["__modules__"] = mods

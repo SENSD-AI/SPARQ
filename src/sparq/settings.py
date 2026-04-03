@@ -116,7 +116,7 @@ class LLMSetting(BaseModel):
     temperature: Optional[float] = None
     top_p: Optional[float] = None
     reasoning: Optional[Literal[1, 0]] = None
-    recursion_limit: int = Field(DEFAULT_RECURSION_LIMIT, ge=0, le=30, description="Maximum number of steps it takes to walk from graph root to terminal leaf")
+    recursion_limit: int = Field(DEFAULT_RECURSION_LIMIT, ge=0, le=200, description="Maximum number of steps it takes to walk from graph root to terminal leaf")
 
 
 class LLMSettings(BaseModel):

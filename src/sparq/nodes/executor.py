@@ -50,6 +50,7 @@ def executor_node(state: State, llm_config: LLMSetting, prompt: str, output_dir:
     Execute the plan
     """
     print("Executing plan to answer your query.")
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     plan: Plan = state['plan']
     llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)

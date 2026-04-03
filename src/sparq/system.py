@@ -40,12 +40,13 @@ class Agentic_system:
 
     def _get_node_definitions(self):
         llm_config = self.settings.llm_config
-        output_dir = self.settings.paths.output_dir
+        run_dir = self.settings.paths.run_dir
+        run_dir.mkdir(parents=True, exist_ok=True)
         self.router_node_partial = partial(router_node, llm_config=llm_config.router, prompt=self.system_prompts['router_prompt'])
         self.planner_node_partial = partial(planner_node, llm_config=llm_config.planner, sys_prompt=self.system_prompts['planner_prompt'])
-        self.executor_node_partial = partial(executor_node, llm_config=llm_config.executor, prompt=self.system_prompts['executor_prompt'], output_dir=output_dir / "executor")
+        self.executor_node_partial = partial(executor_node, llm_config=llm_config.executor, prompt=self.system_prompts['executor_prompt'], output_dir=run_dir / "executor")
         self.aggregator_node_partial = partial(aggregator_node, llm_config=llm_config.aggregator, prompt=self.system_prompts['aggregator_prompt'])
-        self.saver_node_partial = partial(saver_node, save_dir=output_dir)
+        self.saver_node_partial = partial(saver_node, save_dir=run_dir)
     
     def _build_graph(self):
         graph_init = StateGraph(state_schema=State)

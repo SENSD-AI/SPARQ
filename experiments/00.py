@@ -7,19 +7,10 @@ uv run experiments/00.py k : Run SPARQ on first k questions
 """
 
 import asyncio
-from pathlib import Path
 import sys
 
 from sparq.system import Agentic_system
-from sparq.settings_old import Settings
-from sparq.utils.get_package_dir import get_project_root
-
-PROJECT_ROOT = get_project_root()
-if PROJECT_ROOT is None:
-    raise RuntimeError("Could not determine project root directory.")
-
-CONFIG_PATH = PROJECT_ROOT / "config.toml"
-ENV_PATH = PROJECT_ROOT / ".env"
+from sparq.settings import ENVSettings, AgenticSystemSettings
 
 QUESTIONS = [
     # "What is the most common food vehicle associated with salmonella outbreaks?",
@@ -48,12 +39,10 @@ def main():
     else:
         questions = QUESTIONS
 
-    settings = Settings(
-        config_path=CONFIG_PATH,
-        env_path=ENV_PATH,
-    )
+    ENVSettings()
+    AgenticSystemSettings(verbose=True)
     
-    agentic_system = Agentic_system(settings)
+    agentic_system = Agentic_system()
     
     # Run system for all questions
     for question in questions:
