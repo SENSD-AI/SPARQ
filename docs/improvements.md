@@ -34,6 +34,16 @@ response = structured_llm.invoke([SystemMessage(content=prompt), HumanMessage(co
 
 This is faster, cheaper, and simpler. The ReAct pattern is only justified in the executor, where there are tools to use.
 
+**Additional bug — double invocation:** Both nodes also stream the agent *and* invoke it separately:
+
+```python
+for chunks in agent.stream(agent_input, stream_mode="updates"):
+    print(chunks)                        # LLM call 1 — result discarded
+response = agent.invoke(agent_input, ...)  # LLM call 2 — this is what's actually used
+```
+
+The stream is used only for printing and its result is thrown away. Every router and planner run makes two full LLM calls. Fix: invoke once and print the result, or stream and accumulate.
+
 ---
 
 ## 2. Direct answer path skips the saver
@@ -50,23 +60,30 @@ Direct answers are never saved. The saver should sit on both exit paths, or the 
 
 ---
 
-## 3. Executor mutates state mid-loop
+## 3. Executor returns full state instead of a partial update
 
 **File**: `src/sparq/nodes/executor.py`
 
-Inside the step loop:
+At the end of the step loop:
 
 ```python
-state['executor_results'] = results  # side-effecting mid-loop
+    state['executor_results'] = results  # assigned inside loop, on every iteration
+return state                             # returns the entire state dict
 ```
 
-LangGraph nodes should return a state update dict at the end, not mutate in-place during execution. The intermediate writes during the loop are never observed by any other node — they're dead writes. Move the assignment outside the loop and return it as part of the node's return value.
+Two issues, neither a correctness bug but both wrong by convention:
+
+1. `state['executor_results'] = results` runs on every loop iteration. Only the final assignment matters — all prior ones are overwritten before anything reads them. Move it outside the loop.
+
+2. `return state` returns the full state dict. LangGraph nodes should return only the fields they changed. The correct form is `return {'executor_results': results}`. Returning the whole state silently overwrites every other field with its current value, which happens to be a no-op now but becomes a source of subtle bugs if reducers or concurrent updates are ever introduced (see improvement 7).
+
+Note: this is **not** a data-loss bug. The aggregator correctly receives all step results because the final iteration's write survives in `state` and is included in the return.
 
 ---
 
 ## 4. Global REPL namespace breaks concurrent runs
 
-**File**: `src/sparq/tools/python_repl/executor.py` (or wherever `_PERSISTENT_NS_PATH` is defined)
+**File**: `src/sparq/tools/python_repl/namespace.py`
 
 The persistent namespace path is a module-level global:
 
@@ -111,7 +128,7 @@ would allow the executor to topologically sort steps and run independent ones in
 `State` is a plain `TypedDict`, so bad updates silently succeed at runtime. Two improvements:
 
 - Use a Pydantic model for validation on updates.
-- Add LangGraph `Annotated` reducers for fields that should merge rather than replace. For example, `executor_results` accumulates across steps and should use `operator.or_` rather than full replacement:
+- Add LangGraph `Annotated` reducers for fields that should merge rather than replace. In the current architecture `executor_results` is written once by the executor node, so no reducer is needed today. However, if replanning is introduced (see improvement 8) and the executor runs multiple times, a merge reducer becomes necessary to avoid the second run overwriting the first:
 
 ```python
 from typing import Annotated
@@ -265,7 +282,9 @@ router (enum)
 
 **The planner and executor are unchanged** — they become one branch of the conditional edges rather than the only path.
 
-**Design decision:** An alternative is to not add new nodes but instead give the executor additional tools (`interpret_plot`, web search). The planner would then include image analysis or web search steps in its plan. This is more flexible but harder to prompt reliably and couples general capabilities to the data-analysis planning machinery. Separate branches are cleaner for a product.
+**Design decision on `direct_answer`:** In the proposed graph, `direct_answer` routes through the aggregator. But the router already generates the answer inline — passing it through an extra aggregator LLM call adds latency and cost for no benefit. The `direct_answer` path should either skip the aggregator entirely (going straight to saver) or the aggregator should detect this route and pass the answer through unchanged.
+
+**Design decision on separate nodes vs. extra tools:** An alternative is to not add new nodes but instead give the executor additional tools (`interpret_plot`, web search). The planner would then include image analysis or web search steps in its plan. This is more flexible but harder to prompt reliably and couples general capabilities to the data-analysis planning machinery. Separate branches are cleaner for a product.
 
 ---
 
