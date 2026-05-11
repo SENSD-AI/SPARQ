@@ -10,8 +10,7 @@ from sparq.settings import (
 )
 from sparq.utils.get_llm import get_llm
 
-from langgraph.prebuilt import create_react_agent
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 
 def planner_node(state: State, llm_config: LLMSetting, sys_prompt: str):
@@ -35,22 +34,8 @@ def planner_node(state: State, llm_config: LLMSetting, sys_prompt: str):
     _system_prompt: str = system_prompt_template.invoke(input={}).to_string()
     system_prompt: SystemMessage = SystemMessage(content=_system_prompt)
 
-    # create the ReAct agent
-    agent = create_react_agent(
-        model=llm,
-        tools=[],
-        prompt=system_prompt,
-        response_format=Plan
-    )
-
-    # invoke agent and stream the response
-    agent_input = {"messages": [{"role": "user", "content": state['query']}]}
-    for chunks in agent.stream(agent_input, stream_mode="updates"):
-        print(chunks)
-
-    response = agent.invoke(agent_input, config={"recursion_limit": llm_config.recursion_limit})
-
-    plan = response["structured_response"]
+    structured_llm = llm.with_structured_output(Plan)
+    plan = structured_llm.invoke([system_prompt, HumanMessage(content=state['query'])])
 
     print("Created plan")
     return {'plan': plan, 'data_context': data_context}

@@ -21,7 +21,7 @@ class Plan(BaseModel):
             print(f"Description: {step.step_description}")
             print(f"Datasets: {step.datasets}")
             print(f"Rationale: {step.rationale}")
-            print(f"Tast Type: {step.task_type}")
+            print(f"Task Type: {step.task_type}")
             print()
         
         print("Wants:")
@@ -32,7 +32,7 @@ class Plan(BaseModel):
 class Router(BaseModel):
     """Output of the router node"""
     route: bool = Field(..., description="Whether the query requires further planning (True) or can be answered directly (False)")
-    answer: str | None = Field(..., description="The answer to the query if it can be answered directly")
+    answer: str | None = Field(None, description="The answer to the query if it can be answered directly")
     
 class ExecutorOutput(BaseModel):
     """Output of the executor node"""

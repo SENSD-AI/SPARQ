@@ -2,21 +2,21 @@
 
 ## Priority Summary
 
-| Change | Effort | Impact |
-|--------|--------|--------|
-| Replace router/planner ReAct with structured LLM | Low | Medium (speed, cost) |
-| Fix saver bypass on direct-answer path | Low | High (correctness) |
-| Fix executor mid-loop state mutation | Low | Medium (correctness) |
-| Scope REPL namespace to run ID | Low | High (concurrency safety) |
-| Plot interpretation via agent-controlled tool | Medium | High (output quality) |
-| Rolling context summarization in executor | Medium | High (context limit avoidance) |
-| Step dependency + parallel execution | Medium | High (throughput) |
-| State as Pydantic with reducers | Medium | Medium (robustness) |
-| Figure numbering tool for executor | Low | Medium (output quality) |
-| Aggregator academic referencing of outputs | Medium | High (output quality) |
-| Aggregator writes markdown report → PDF | Low | High (output quality) |
-| Multi-route router for general use cases | High | High (product scope) |
-| Executor → planner feedback loop | High | High (resilience) |
+| Change | Effort | Impact | Done |
+|--------|--------|--------|------|
+| Replace router/planner ReAct with structured LLM | Low | Medium (speed, cost) | [x] |
+| Fix saver bypass on direct-answer path | Low | High (correctness) | [ ] |
+| Fix executor mid-loop state mutation | Low | Medium (correctness) | [ ] |
+| Scope REPL namespace to run ID | Low | High (concurrency safety) | [ ] |
+| Plot interpretation via agent-controlled tool | Medium | High (output quality) | [ ] |
+| Rolling context summarization in executor | Medium | High (context limit avoidance) | [ ] |
+| Step dependency + parallel execution | Medium | High (throughput) | [ ] |
+| State as Pydantic with reducers | Medium | Medium (robustness) | [ ] |
+| Figure numbering tool for executor | Low | Medium (output quality) | [ ] |
+| Aggregator academic referencing of outputs | Medium | High (output quality) | [ ] |
+| Aggregator writes markdown report → PDF | Low | High (output quality) | [ ] |
+| Multi-route router for general use cases | High | High (product scope) | [ ] |
+| Executor → planner feedback loop | High | High (resilience) | [ ] |
 
 ---
 
