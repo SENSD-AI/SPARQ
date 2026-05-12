@@ -17,6 +17,7 @@
 | Aggregator writes markdown report → PDF | Low | High (output quality) | [ ] |
 | Multi-route router for general use cases | High | High (product scope) | [ ] |
 | Executor → planner feedback loop | High | High (resilience) | [ ] |
+| LLM model validation at startup | Low | Medium (reliability) | [ ] |
 
 ---
 
@@ -293,3 +294,26 @@ router (enum)
 **File**: `src/sparq/nodes/aggregator.py`
 
 The router, planner, and executor all use `response_format` for structured output. The aggregator calls `llm.invoke(prompt_str)` and reads `.content` directly. This inconsistency makes it harder to evolve the output schema (e.g., adding citations, confidence scores, or section headers) and bypasses the validation guarantees the rest of the pipeline relies on.
+
+---
+
+## 15. LLM model validation at startup
+
+**Files**: `src/sparq/utils/get_llm.py`, `src/sparq/system.py`
+
+After a user sets model IDs in a TOML config there is no verification that those models are actually usable. Errors only surface mid-run when a node first invokes the model, at which point significant context and cost may already have been spent. Three properties should be checked up front:
+
+1. **On-demand throughput** — the model must be available for on-demand inference. A model that only supports provisioned throughput (e.g., a Bedrock model the user hasn't reserved capacity for) will fail at runtime.
+2. **Input/output modality** — the pipeline sends text and expects text back. A misconfigured model ID that resolves to an image-only or embedding model will produce cryptic errors deep in the graph.
+3. **Active vs. legacy lifecycle** — a legacy/deprecated model ID should surface a warning so users can migrate before it is removed.
+
+**Design:**
+
+Add a `validate_llm(model, provider, node)` function to `get_llm.py` with per-provider implementations:
+
+- **`aws_bedrock`** — uses the `bedrock` management-plane client (distinct from `bedrock-runtime`). For direct model IDs: calls `get_foundation_model` and checks `inferenceTypesSupported` (must contain `ON_DEMAND`), `inputModalities`/`outputModalities` (must contain `TEXT`), and `modelLifecycle.status` (warn if `LEGACY`). For cross-region inference profile IDs (`us.*`, `eu.*`, `ap.*`): calls `get_inference_profile` to verify the profile exists and is `ACTIVE`, then resolves the underlying model ARN to check modalities and lifecycle.
+- **`google_genai`** — calls `genai.get_model()` to verify the model exists and that `generateContent` is in `supported_generation_methods`.
+- **`openai`** — calls `openai.models.retrieve()` to verify the model ID is accessible.
+- **`openrouter`** — no programmatic check available; skipped.
+
+Add a `_validate_models()` method to `Agentic_system` called at the end of `__init__`, iterating over all non-`None` entries in `self.settings.llm_config` and calling `validate_llm` for each. Validation failures raise `ValueError` immediately; legacy lifecycle emits `warnings.warn`.
