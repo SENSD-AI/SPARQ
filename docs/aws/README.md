@@ -25,5 +25,16 @@ aws sts get-caller-identity --profile <aws_profile>
 
 To list all available foundation models in AWS Bedrock, you can run the following command:
 ```bash
-aws bedrock list-foundation-models --query 'modelSummaries[].{Model:modelId,Provider:providerName}' --output table --profile sensd
+aws bedrock list-foundation-models \
+  --query 'modelSummaries[].{Model:modelId,Provider:providerName,Status:modelLifecycle.status,Input:join(`,`,inputModalities),Output:join(`,`,outputModalities),Inference:join(`,`,inferenceTypesSupported)}' \
+  --output table \
+  --profile sensd
+```
+
+To output the model list in JSON format, you can use:
+```bash
+aws bedrock list-foundation-models \
+  --query 'modelSummaries[].{Model:modelId,Provider:providerName,Status:modelLifecycle.status,Input:join(`,`,inputModalities),Output:join(`,`,outputModalities),Inference:join(`,`,inferenceTypesSupported)}' \  
+  --output json \
+  --profile sensd > <output_path>.json
 ```
