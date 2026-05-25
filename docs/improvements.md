@@ -317,3 +317,133 @@ Add a `validate_llm(model, provider, node)` function to `get_llm.py` with per-pr
 - **`openrouter`** — no programmatic check available; skipped.
 
 Add a `_validate_models()` method to `Agentic_system` called at the end of `__init__`, iterating over all non-`None` entries in `self.settings.llm_config` and calling `validate_llm` for each. Validation failures raise `ValueError` immediately; legacy lifecycle emits `warnings.warn`.
+
+---
+
+# SPARQ v2 Architecture
+
+The following improvements are drawn from the SPARQ v2 system design specification. They are larger in scope than the incremental fixes above — each represents a significant new subsystem rather than a targeted change to existing code. They are listed here for reference and roadmap planning.
+
+## v2 Priority Summary
+
+| Change | Effort | Impact | Done |
+|--------|--------|--------|------|
+| Data cleaning & validation pre-pipeline | High | High (data quality) | [ ] |
+| DAG-based macro-decomposition (Lead Supervisor) | High | High (query complexity) | [ ] |
+| Speculative parallel execution tracks (K paths) | High | High (result quality) | [ ] |
+| Editorial synthesis gatekeeper | Medium | Medium (output quality) | [ ] |
+
+## v2 Time to Completion
+
+Estimates are for a solo developer. The team column assumes 2–3 people with no coordination overhead on independent phases.
+
+| Component | Solo | Team (2–3) | Notes |
+|-----------|------|------------|-------|
+| v2.1 Data cleaning & validation loop | 3–4 weeks | 2–3 weeks | Nothing reusable; Cleaner + Validator nodes, feedback loop graph wiring, 4-artifact schema all new |
+| v2.2 DAG-based macro-decomposition | 4–6 weeks | 2–4 weeks | DAG schema + dependency-aware dispatcher are new; RAG sub-component alone is ~2–3 weeks |
+| v2.3 Speculative parallel execution | 5–7 weeks | 3–5 weeks | Most complex phase; REPL subsystem (~80%) reusable, but K-path fan-out, Docker infra, and self-healing loop are new |
+| v2.4 Editorial synthesis gatekeeper | 1–2 weeks | 1 week | Straightforward new node; aggregator structured output (improvement 14) is a prerequisite |
+| Integration & end-to-end testing | 2–3 weeks | 1–2 weeks | Cross-phase wiring, failure mode handling, full pipeline tests |
+| **Total** | **15–22 weeks** | **9–15 weeks** | |
+
+### Assumptions
+
+- **"Fine-tuned epidemiology model"** in the spec is treated as prompt engineering on a general frontier model, not an actual fine-tuning run. A real fine-tuning effort would add months and is outside scope here.
+- **Parallel sandboxing** uses `multiprocessing.spawn` (already the REPL's isolation mechanism) rather than per-path Docker containers. Switching to Docker adds ~2–3 weeks of DevOps work to v2.3.
+- **RAG pipeline** (v2.2 Retrieval track) targets locally available documents only. Connecting to live external databases (GenBank, PubMed, etc.) adds 2–4 weeks depending on API availability and ingestion volume.
+- Estimates cover implementation and unit tests. Domain validation (i.e., verifying the epidemiological outputs are scientifically correct) is out of scope and handled separately.
+
+### What is reusable from v1
+
+| v1 Component | Reuse in v2 | Reuse % |
+|---|---|---|
+| `tools/python_repl/` | v2.3 per-script sandbox | ~80% |
+| `utils/get_llm.py`, `settings.py` | All new nodes | ~90% |
+| `nodes/aggregator.py` | v2.4 draft input | ~30% |
+| `nodes/planner.py` | v2.3 script generation | ~20% |
+| `system.py` graph wiring | New DAG dispatcher | ~10% |
+| `nodes/router.py`, `nodes/executor.py` | Superseded | ~0% |
+
+---
+
+## v2.1. Data Cleaning & Validation Pre-Pipeline
+
+**New files**: `nodes/cleaner.py`, `nodes/data_validator.py`, `schemas/cleaning_artifacts.py`
+
+Currently the system assumes datasets are already clean and ready to use. Before any analytical query is processed, a dedicated pre-pipeline should guarantee structural and semantic integrity of the target dataset.
+
+**Cleaner Agent** (`nodes/cleaner.py`): scans incoming datasets, searches for accompanying data dictionaries or schema documentation. If documentation is absent, autonomously explores file headers, infers column types, and reconstructs the schema. Produces four standardised artifacts:
+
+1. A cleaned dataset
+2. A textual parsing and analysis report
+3. A structured JSON metadata schema (column names, types, constraints, null tolerances)
+4. A data-access loader interface for downstream agents
+
+**Data Validator** (`nodes/data_validator.py`): receives the four artifacts and programmatically generates and executes validation scripts (boundary checks, type assertions, null-value tolerances). If any test fails, it returns the stack trace to the Cleaner Agent for correction. This feedback loop runs up to a configurable maximum (default 10 iterations); if unresolved, the pipeline halts and alerts the user before any analytical node runs.
+
+**Graph change**: the cleaning loop runs as a prerequisite subgraph before the main `router → planner → executor` chain. The JSON metadata schema produced here replaces the static `data_manifest.json` as the planner's data reference.
+
+---
+
+## v2.2. DAG-Based Macro-Decomposition (Lead Supervisor)
+
+**New files**: `nodes/lead_supervisor.py`, `schemas/dag.py`
+
+The current planner produces a flat, ordered list of steps. For complex multi-part queries this is insufficient: independent sub-questions cannot be parallelised and the planner has no way to express dependencies between them.
+
+**Lead Supervisor** (`nodes/lead_supervisor.py`): replaces the planner as the top-level decomposition node. It receives the user query and the JSON metadata schema from the cleaning pipeline, then decomposes the query into a DAG of atomic sub-questions. Each node in the DAG carries:
+
+```python
+class DAGNode(BaseModel):
+    id: str
+    question: str
+    track: Literal["clarification", "retrieval", "simple_analysis", "complex_analysis"]
+    deps: List[str]  # upstream node IDs that must resolve first
+```
+
+**Track routing:**
+- `clarification` — missing parameters (geography, strain, date range) are returned directly to the user before execution proceeds
+- `retrieval` — routes to a RAG agent querying local scientific literature or genomic databases
+- `simple_analysis` — descriptive statistics and basic slicing; routed directly to automated tools
+- `complex_analysis` — triggers the speculative parallel execution track (v2.3)
+
+The Lead Supervisor's context window is intentionally restricted to the user query, the metadata schema, and DAG execution state — it never sees raw code traces or executor outputs.
+
+**Graph change**: the existing `planner → executor` edge becomes one branch (`complex_analysis`) of a conditional dispatch from the Lead Supervisor. DAG nodes with no unresolved `deps` are dispatched concurrently via `asyncio.gather`.
+
+---
+
+## v2.3. Speculative Parallel Execution Tracks (Trajectory Supervisor)
+
+**New files**: `nodes/trajectory_supervisor.py`, `nodes/parallel_executor.py`
+
+When the Lead Supervisor dispatches a `complex_analysis` node, a dedicated execution track handles it. This track runs K competing methodological approaches in parallel and synthesises their results rather than committing to a single approach upfront.
+
+**Trajectory Supervisor** (`nodes/trajectory_supervisor.py`): receives the isolated sub-question. Before any code is generated, it defines K execution mandates — explicit, domain-informed descriptions of distinct methodological paths (e.g. a deterministic SEIR baseline, an XGBoost ensemble, a neural representation). It does not generate code; it only specifies strategy.
+
+**Planner** (extended): takes the K mandates and generates one Python script per path. Each script is self-contained and independently executable.
+
+**Parallel Executor** (`nodes/parallel_executor.py`): launches all K scripts simultaneously in isolated sandboxed runtimes (Docker containers or `multiprocessing.spawn` processes). Per-script self-healing: on a standard interpreter exception (`SyntaxError`, `KeyError`, `ModuleNotFoundError`), the error is captured locally and a code-optimised model attempts an automated fix. This inner loop runs up to a configurable maximum (default 10 retries) per script. If a script fails to resolve, it is marked failed; the remaining scripts continue. Failures at this layer never surface to the Trajectory Supervisor's context.
+
+**Synthesis**: once all scripts exit, the Trajectory Supervisor compiles their outputs, metrics, and data summaries into a standardised Fact Package. All successful paths are preserved — no pathway is destructively pruned. The comparative data from alternate methodologies is retained as high-value metadata. The Trajectory Supervisor's local context is then discarded.
+
+**Relationship to existing REPL**: the existing `tools/python_repl/` subsystem handles single-script subprocess isolation and namespace persistence. The parallel executor wraps this per-script, adding the self-healing loop and multi-process fan-out. The REPL internals are largely reusable.
+
+---
+
+## v2.4. Editorial Synthesis Gatekeeper
+
+**New files**: `nodes/synthesis_supervisor.py`
+
+The current aggregator is a single LLM call with no validation of its output. For publication-grade reports, the draft should pass an independent editorial review before being delivered to the user.
+
+**Synthesis Supervisor** (`nodes/synthesis_supervisor.py`): a third independent LLM instance (separate from the Lead Supervisor and Trajectory Supervisor). It receives the original user query, the compiled Fact Packages from the execution phase, and the aggregator's draft report. It checks strictly for:
+
+- Narrative flow and internal logical consistency
+- Correct citation of figures by number (cross-checked against the figure manifest from improvement 11)
+- Formatting alignment with scientific literature conventions
+- Factual consistency against the Fact Packages — it does not re-run code or re-audit arithmetic
+
+If the draft fails review, it is returned to the aggregator with specific editorial notes for rewrite. This loop runs up to a configurable maximum (default 3 iterations). After the ceiling is reached or the report passes, it is locked and delivered.
+
+**Relationship to existing aggregator**: the aggregator node is unchanged; the Synthesis Supervisor sits downstream of it as an additional conditional edge in the graph. The aggregator's structured output schema (improvement 14) is a prerequisite for this node to function reliably.
