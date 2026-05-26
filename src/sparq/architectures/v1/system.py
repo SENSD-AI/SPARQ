@@ -18,8 +18,8 @@ import pydantic_core
 from rich import print
 
 class Agentic_system:
-    def __init__(self):
-        self.settings = V1Settings()
+    def __init__(self, verbose: bool = False):
+        self.settings = V1Settings(verbose=verbose)
 
         # Get system prompts
         self.prompts_dir = self.settings.paths.prompts_dir

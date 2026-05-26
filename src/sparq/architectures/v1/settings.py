@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 
 from pydantic_settings import SettingsConfigDict
 
@@ -12,10 +11,10 @@ V1_USER_CONFIG:  Path = get_user_config_dir() / "v1" / "config.toml"
 
 
 class V1LLMSettings(BaseLLMSettings):
-    router:     Optional[LLMSetting] = None
-    planner:    Optional[LLMSetting] = None
-    executor:   Optional[LLMSetting] = None
-    aggregator: Optional[LLMSetting] = None
+    router:     LLMSetting
+    planner:    LLMSetting
+    executor:   LLMSetting
+    aggregator: LLMSetting
 
 
 class V1Settings(BaseAgenticSettings[V1LLMSettings]):
