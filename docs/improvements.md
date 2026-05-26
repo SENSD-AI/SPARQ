@@ -329,10 +329,10 @@ The following changes are prerequisite scaffolding — neither pure v1 bug fixes
 | Change | Effort | Impact | Done |
 |--------|--------|--------|------|
 | `architectures/` directory structure | Low | High (prerequisite for all below) | [x] |
-| `BaseAgenticSettings` refactor in `settings.py` | Low | High (enables per-arch subclassing) | [ ] |
-| Per-architecture `settings.py` + `default_config.toml` | Low | High (eliminates config discrepancy) | [ ] |
+| `BaseAgenticSettings` refactor in `settings.py` | Low | High (enables per-arch subclassing) | [x] |
+| Per-architecture `settings.py` + `default_config.toml` | Low | High (eliminates config discrepancy) | [x] |
 | `--architecture` CLI arg in `__main__.py` | Low | High (runtime arch selection) | [ ] |
-| `setup.py` multi-architecture config copy | Low | Medium (first-run correctness) | [ ] |
+| `setup.py` multi-architecture config copy | Low | Medium (first-run correctness) | [x] |
 | Test suite update for new settings structure | Low | Medium (keeps CI green) | [ ] |
 
 ---

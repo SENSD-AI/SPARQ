@@ -3,7 +3,7 @@ from functools import partial
 from pathlib import Path
 
 # from sparq.settings_old import Settings
-from sparq.settings import BaseAgenticSettings
+from sparq.architectures.v1.settings import V1Settings
 from sparq.architectures.v1.nodes.planner import planner_node
 from sparq.architectures.v1.nodes.executor import executor_node
 from sparq.architectures.v1.nodes.router import router_func, router_node
@@ -19,10 +19,10 @@ from rich import print
 
 class Agentic_system:
     def __init__(self):
-        self.settings = BaseAgenticSettings()         # Ignore 'missing parameters' warning.
+        self.settings = V1Settings()
 
         # Get system prompts
-        self.prompts_dir = Path(__file__).parent / "prompts"
+        self.prompts_dir = self.settings.paths.prompts_dir
         self.system_prompts = self._load_prompts(self.prompts_dir)
 
     def _load_prompts(self, prompts_dir: Path) -> dict:

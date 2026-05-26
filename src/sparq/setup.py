@@ -14,8 +14,6 @@ import shutil
 
 from sparq.settings import (
     BUNDLED_DATA_DIR,
-    INNER_CONFIG_PATH,
-    USER_CONFIG_PATH,
     USER_DATA_DIR,
     USER_DOTFILE_PATH,
     DATA_SUMMARIES_PATH,
@@ -23,8 +21,14 @@ from sparq.settings import (
     DATA_SUMMARIES_SHORT_PATH,
     get_user_config_dir,
 )
+from sparq.architectures.v1.settings import V1_INNER_CONFIG, V1_USER_CONFIG
 
 SENTINEL = get_user_config_dir() / ".setup_complete"
+
+ARCH_CONFIGS = [
+    (V1_INNER_CONFIG, V1_USER_CONFIG),
+    # (V2_INNER_CONFIG, V2_USER_CONFIG),  # add when v2 is implemented
+]
 
 
 def setup():
@@ -32,9 +36,11 @@ def setup():
     get_user_config_dir().mkdir(parents=True, exist_ok=True)
     USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 2. Copy default config to user config dir if not already present
-    if not USER_CONFIG_PATH.exists():
-        shutil.copy2(INNER_CONFIG_PATH, USER_CONFIG_PATH)
+    # 2. Copy each architecture's default config to its user config dir
+    for inner, user in ARCH_CONFIGS:
+        user.parent.mkdir(parents=True, exist_ok=True)
+        if not user.exists():
+            shutil.copy2(inner, user)
 
     # 4. Copy .env.example to user config dir if no .env exists
     if not USER_DOTFILE_PATH.exists():

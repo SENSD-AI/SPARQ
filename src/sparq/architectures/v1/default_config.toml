@@ -1,0 +1,23 @@
+test_query = "What are the main factors contributing to salmonella rates in Missouri in a statistical sense?"
+
+[paths]
+output_dir = "~/tmp/sparq/output"
+# output_stem = "" # Stem for output files, e.g., setting to 'output' would give "output_<timestamp>.json"
+prompts_dir = "architectures/v1/prompts"
+
+[llm_config]
+[llm_config.router]
+model = "gemini-2.0-flash"
+provider = "google_genai"
+
+[llm_config.planner]
+model = "gemini-2.0-flash"
+provider = "google_genai"
+
+[llm_config.executor]
+model = "gemini-2.0-flash"
+provider = "google_genai"
+
+[llm_config.aggregator]
+model = "gemini-2.0-flash"
+provider = "google_genai"

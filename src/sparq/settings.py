@@ -47,10 +47,6 @@ def get_user_config_dir() -> Path:
         raise RuntimeError(f"Unsupported platform: {PLATFORM}")
 
 
-INNER_CONFIG_PATH: Path = get_package_dir() / "default_config.toml"
-DEV_CONFIG_PATH: Path = get_project_root() / "config.toml"
-USER_CONFIG_PATH: Path = get_user_config_dir() / "config.toml"
-
 # -----------------------------------------------------------------------
 # Data Manifest and Summaries
 # -----------------------------------------------------------------------
@@ -156,13 +152,13 @@ class PathSettings(BaseModel):
         return self
 
 class BaseAgenticSettings[LLMConfigT: BaseLLMSettings](BaseSettings):
-    test_query: str  # In Inner config file. Devs and Users aren't expected.
-    llm_config: LLMConfigT 
+    """
+    Base for all architecture-specific settings.
+    Subclasses must define model_config with the appropriate TOML configuration file paths.
+    """
+    test_query: str
+    llm_config: LLMConfigT
     paths: PathSettings
-
-    model_config = SettingsConfigDict(
-        toml_file=[INNER_CONFIG_PATH, DEV_CONFIG_PATH, USER_CONFIG_PATH]
-    )
 
     def __init__(self, verbose: bool = False, **data):
         super().__init__(**data)
