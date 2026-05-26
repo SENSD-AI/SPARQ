@@ -1,13 +1,13 @@
 
-from sparq.settings import ENVSettings, AgenticSystemSettings
+from sparq.settings import ENVSettings, BaseAgenticSettings
 from sparq.utils import helpers
-from sparq.system import Agentic_system
+from sparq.architectures.v1.system import Agentic_system
 import argparse
 import asyncio
 
 def main():
     _ = ENVSettings(verbose=True)
-    system_settings = AgenticSystemSettings(verbose=True)
+    system_settings = BaseAgenticSettings(verbose=True)
 
     parser = argparse.ArgumentParser(description="Run the LangGraph application.")
     parser.add_argument('-t', '--test', action='store_true', help="Run in test mode with a predefined query.")

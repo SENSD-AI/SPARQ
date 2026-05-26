@@ -320,6 +320,105 @@ Add a `_validate_models()` method to `Agentic_system` called at the end of `__in
 
 ---
 
+# v1 → v2 Infrastructure Bridge
+
+The following changes are prerequisite scaffolding — neither pure v1 bug fixes nor v2 features. They restructure the codebase to support multiple architectures so that v2 can be built alongside v1 without shared-config collisions or hardcoded paths.
+
+## Bridge Priority Summary
+
+| Change | Effort | Impact | Done |
+|--------|--------|--------|------|
+| `architectures/` directory structure | Low | High (prerequisite for all below) | [x] |
+| `BaseAgenticSettings` refactor in `settings.py` | Low | High (enables per-arch subclassing) | [ ] |
+| Per-architecture `settings.py` + `default_config.toml` | Low | High (eliminates config discrepancy) | [ ] |
+| `--architecture` CLI arg in `__main__.py` | Low | High (runtime arch selection) | [ ] |
+| `setup.py` multi-architecture config copy | Low | Medium (first-run correctness) | [ ] |
+| Test suite update for new settings structure | Low | Medium (keeps CI green) | [ ] |
+
+---
+
+## Bridge.1. `architectures/` Directory Structure
+
+**Status: done.**
+
+`src/sparq/architectures/v1/` (nodes, system, prompts, `__init__.py`) and `src/sparq/architectures/v2/` (stub `__init__.py`) have been created. `__main__.py` imports `Agentic_system` from `architectures/v1/system`.
+
+---
+
+## Bridge.2. `BaseAgenticSettings` Refactor
+
+**File**: `src/sparq/settings.py`
+
+Rename `AgenticSystemSettings` → `BaseAgenticSettings`. Remove `llm_config: LLMSettings` and `model_config` — both are architecture-specific and belong in subclasses. Remove `LLMSettings` class (moves to `v1/settings.py`). Remove module-level constants `INNER_CONFIG_PATH`, `DEV_CONFIG_PATH`, `USER_CONFIG_PATH` — replaced by per-architecture constants.
+
+Keep: `LLMSetting`, `PathSettings`, `ENVSettings`, and `settings_customise_sources` (inherited by subclasses; provides `deep_merge=True` for TOML layering).
+
+---
+
+## Bridge.3. Per-Architecture `settings.py` + `default_config.toml`
+
+**New files**: `src/sparq/architectures/v1/settings.py`, `src/sparq/architectures/v1/default_config.toml`
+
+**`v1/settings.py`** defines:
+
+- Path constants:
+  ```python
+  V1_INNER_CONFIG = Path(__file__).parent / "default_config.toml"
+  V1_DEV_CONFIG   = get_project_root() / "config_v1.toml"
+  V1_USER_CONFIG  = get_user_config_dir() / "v1" / "config.toml"
+  ```
+- `V1LLMSettings(BaseModel)` — router, planner, executor, aggregator fields (same structure as the current `LLMSettings`)
+- `V1Settings(BaseAgenticSettings)` — adds `llm_config: V1LLMSettings`, sets `model_config` with `toml_file=[V1_INNER_CONFIG, V1_DEV_CONFIG, V1_USER_CONFIG]`
+
+**`v1/default_config.toml`** is a copy of the root `default_config.toml` with `prompts_dir = "architectures/v1/prompts"`. This resolves the discrepancy where settings reported `src/sparq/prompts` but the active code used `architectures/v1/prompts`.
+
+**`v1/system.py`** is updated to import `V1Settings` instead of `AgenticSystemSettings` and restores `self.prompts_dir = self.settings.paths.prompts_dir`.
+
+---
+
+## Bridge.4. `--architecture` CLI Arg
+
+**File**: `src/sparq/__main__.py`
+
+Add:
+```python
+parser.add_argument('-a', '--architecture', default='v1', choices=['v1'])
+```
+
+Import `Agentic_system` dynamically based on the arg:
+```python
+if args.architecture == 'v1':
+    from sparq.architectures.v1.system import Agentic_system
+```
+
+Remove the redundant standalone `AgenticSystemSettings(verbose=True)` instantiation. `Agentic_system` receives a `verbose` param and passes it to `V1Settings` internally, so settings are printed once from the right class.
+
+---
+
+## Bridge.5. `setup.py` Multi-Architecture Config Copy
+
+**File**: `src/sparq/setup.py`
+
+Import `V1_INNER_CONFIG`, `V1_USER_CONFIG` from `sparq.architectures.v1.settings`. Replace the single `INNER_CONFIG_PATH → USER_CONFIG_PATH` copy with per-architecture copies:
+
+```python
+V1_USER_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+if not V1_USER_CONFIG.exists():
+    shutil.copy2(V1_INNER_CONFIG, V1_USER_CONFIG)
+```
+
+When v2 is added, append its equivalent block here.
+
+---
+
+## Bridge.6. Test Suite Update
+
+**File**: `tests/test_settings.py`
+
+Replace `from sparq.settings import AgenticSystemSettings` with `from sparq.architectures.v1.settings import V1Settings`. Rename `TestAgenticSystemSettings` → `TestV1Settings`. Update the `prompts_dir` assertion to verify the resolved path falls inside `architectures/v1/prompts`.
+
+---
+
 # SPARQ v2 Architecture
 
 The following improvements are drawn from the SPARQ v2 system design specification. They are larger in scope than the incremental fixes above — each represents a significant new subsystem rather than a targeted change to existing code. They are listed here for reference and roadmap planning.

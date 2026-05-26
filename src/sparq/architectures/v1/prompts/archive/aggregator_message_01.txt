@@ -1,0 +1,15 @@
+You are given 2 things. (1) A plan that was created by another
+system to answer the query and (2) The execution results of each step of the plan.
+
+Answer the user's query and base your answer on the given plan and execution results
+
+Now,
+The user's query:
+{user_query}
+
+The plan that was created to answer the query:
+{plan}
+
+The results after executing the plan:
+{execution_results}
+
