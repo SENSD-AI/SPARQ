@@ -114,13 +114,6 @@ class LLMSetting(BaseModel):
     reasoning: Optional[Literal[1, 0]] = None
     recursion_limit: int = Field(DEFAULT_RECURSION_LIMIT, ge=0, le=200, description="Maximum number of steps it takes to walk from graph root to terminal leaf")
 
-# This is v1 specific. Move this into v1/
-class LLMSettings(BaseModel):
-    router: Optional[LLMSetting] = None
-    planner: Optional[LLMSetting] = None
-    executor: Optional[LLMSetting] = None
-    aggregator: Optional[LLMSetting] = None
-
 class BaseLLMSettings(BaseModel):
     """
     Abstract structural base. Architecture-specific settings 

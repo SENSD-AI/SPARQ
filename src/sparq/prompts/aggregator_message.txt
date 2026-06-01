@@ -1,8 +1,0 @@
-What follows are the results of a study to answer the following question: 
-{user_query}
-
-results:
-{execution_results}
-
-Please write a detailed report of the results.
-
