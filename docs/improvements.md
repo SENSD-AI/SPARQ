@@ -20,7 +20,7 @@
 
 ## 1. Global REPL namespace breaks concurrent runs
 
-**File**: `src/sparq/tools/python_repl/namespace.py`
+**Files**: `src/sparq/tools/python_repl/namespace.py`, `src/sparq/tools/python_repl/executor.py`, `src/sparq/tools/python_repl/python_repl_tool.py`, `src/sparq/architectures/v1/nodes/executor.py`
 
 The persistent namespace path is a module-level global:
 
@@ -28,7 +28,92 @@ The persistent namespace path is a module-level global:
 _PERSISTENT_NS_PATH = None  # single global per process
 ```
 
-Two concurrent runs share the same pickle file, causing namespace collisions. The namespace path should be scoped to a run ID — pass it via LangGraph's `RunnableConfig` (e.g., `config["configurable"]["run_id"]`) so each run gets an isolated temp file.
+Two concurrent runs share the same pickle file, causing namespace collisions. Additionally, a per-invocation random ID (e.g. `uuid4()` inside the node) breaks replanning (improvement 4) — the second executor invocation would start with an empty namespace, losing everything the first run computed.
+
+The fix uses `RunnableConfig`: a `run_id` is generated once in `system.py` at the start of each `run()` call and passed explicitly into `graph.astream()` via `config={"configurable": {"run_id": run_id}}`. LangGraph then injects this config into every node invocation, including re-invocations of the same node within one run (e.g. replanning). The namespace temp file is cleaned up in a `finally` block after the graph completes, so files don't accumulate.
+
+**`namespace.py`** — replace the module-level global with a process-level dict keyed by `run_id`, and add a cleanup function:
+
+```python
+_ns_paths: dict[str, str] = {}
+
+def get_ns_path_for_run(run_id: str) -> str:
+    if run_id not in _ns_paths or not os.path.exists(_ns_paths[run_id]):
+        fd, path = tempfile.mkstemp(suffix=f"_{run_id}_persistent_ns.pkl")
+        with os.fdopen(fd, "wb") as f:
+            pickle.dump({}, f)
+        _ns_paths[run_id] = path
+    return _ns_paths[run_id]
+
+def cleanup_ns_for_run(run_id: str):
+    path = _ns_paths.pop(run_id, None)
+    if path and os.path.exists(path):
+        os.unlink(path)
+```
+
+Remove `get_persistent_ns_path` and `clear_persistent_namespace`.
+
+**`executor.py` (REPL)** — replace `persist_namespace: bool` with `ns_path: str | None`:
+
+```python
+def execute_code(code: str, ns_path: str | None = None, timeout: int = 2*60) -> OutputSchema:
+    if ns_path is not None:
+        ns_is_temp = False
+    else:
+        ns_fd, ns_path = tempfile.mkstemp(suffix="_ns.pkl")
+        with os.fdopen(ns_fd, "wb") as f:
+            pickle.dump({}, f)
+        ns_is_temp = True
+```
+
+**`python_repl_tool.py`** — change the module-level `@tool` to a factory so the run-scoped path is baked in as a closure. The LLM still controls `persist_namespace`; the path it resolves to is now run-scoped:
+
+```python
+def make_python_repl_tool(ns_path: str):
+    @tool(args_schema=PythonREPLInput, response_format='content_and_artifact')
+    def python_repl_tool(code: str = "", persist_namespace: bool = False):
+        execution_result = execute_code(code or "", ns_path=ns_path if persist_namespace else None)
+        ...
+    return python_repl_tool
+```
+
+**`nodes/executor.py`** — accept `RunnableConfig`, resolve the `ns_path`, pass it to the tool factory and to `_build_context`:
+
+```python
+from langgraph.types import RunnableConfig
+
+def executor_node(state: State, config: RunnableConfig, llm_config: ..., prompt: ..., output_dir: ...):
+    run_id = config.get("configurable", {}).get("run_id", "default")
+    ns_path = get_ns_path_for_run(run_id)
+
+    _tools = [..., make_python_repl_tool(ns_path), ...]
+    ...
+    context = _build_context(results, ns_path)
+```
+
+`_build_context` gains a `ns_path: str` parameter replacing the `get_persistent_ns_path()` call on line 38.
+
+**`system.py`** — generate `run_id` explicitly and clean up after the graph finishes:
+
+```python
+import uuid
+from sparq.tools.python_repl.namespace import cleanup_ns_for_run
+
+async def run(self, user_query: str):
+    self._get_node_definitions()
+    self._build_graph()
+    run_id = str(uuid.uuid4())
+    input_data = {"query": user_query}
+    try:
+        async for chunk in self.graph.astream(
+            input=input_data,
+            config={"configurable": {"run_id": run_id}},
+            stream_mode="updates"
+        ):
+            print(chunk)
+    finally:
+        cleanup_ns_for_run(run_id)
+```
 
 ---
 
