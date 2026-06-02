@@ -4,85 +4,21 @@
 
 | Change | Effort | Impact | Done |
 |--------|--------|--------|------|
-| Replace router/planner ReAct with structured LLM | Low | Medium (speed, cost) | [x] |
-| Fix saver bypass on direct-answer path | Low | High (correctness) | [ ] |
-| Fix executor mid-loop state mutation | Low | Medium (correctness) | [ ] |
 | Scope REPL namespace to run ID | Low | High (concurrency safety) | [ ] |
-| Plot interpretation via agent-controlled tool | Medium | High (output quality) | [ ] |
-| Rolling context summarization in executor | Medium | High (context limit avoidance) | [ ] |
 | Step dependency + parallel execution | Medium | High (throughput) | [ ] |
 | State as Pydantic with reducers | Medium | Medium (robustness) | [ ] |
+| Executor → planner feedback loop | High | High (resilience) | [ ] |
+| Plot interpretation via agent-controlled tool | Medium | High (output quality) | [ ] |
 | Figure numbering tool for executor | Low | Medium (output quality) | [ ] |
 | Aggregator academic referencing of outputs | Medium | High (output quality) | [ ] |
 | Aggregator writes markdown report → PDF | Low | High (output quality) | [ ] |
 | Multi-route router for general use cases | High | High (product scope) | [ ] |
-| Executor → planner feedback loop | High | High (resilience) | [ ] |
+| Aggregator output isn't structured | Low | Medium (robustness) | [ ] |
 | LLM model validation at startup | Low | Medium (reliability) | [ ] |
 
 ---
 
-## 1. Router and Planner don't need ReAct agents
-
-**Files**: `src/sparq/nodes/router.py`, `src/sparq/nodes/planner.py`
-
-Both nodes use `create_react_agent` with no tools. ReAct adds extra LLM turns for "thinking" that serve no purpose when there are no tools to invoke. Replace with a plain structured LLM call:
-
-```python
-# Instead of create_react_agent with no tools:
-structured_llm = llm.with_structured_output(Router)
-response = structured_llm.invoke([SystemMessage(content=prompt), HumanMessage(content=query)])
-```
-
-This is faster, cheaper, and simpler. The ReAct pattern is only justified in the executor, where there are tools to use.
-
-**Additional bug — double invocation:** Both nodes also stream the agent *and* invoke it separately:
-
-```python
-for chunks in agent.stream(agent_input, stream_mode="updates"):
-    print(chunks)                        # LLM call 1 — result discarded
-response = agent.invoke(agent_input, ...)  # LLM call 2 — this is what's actually used
-```
-
-The stream is used only for printing and its result is thrown away. Every router and planner run makes two full LLM calls. Fix: invoke once and print the result, or stream and accumulate.
-
----
-
-## 2. Direct answer path skips the saver
-
-**Files**: `src/sparq/system.py`, `src/sparq/nodes/saver.py`
-
-If `route=False`, the graph edges to `END` without persisting anything:
-
-```python
-graph_init.add_conditional_edges("router", router_func, {True: "planner", False: END})
-```
-
-Direct answers are never saved. The saver should sit on both exit paths, or the router node should handle its own persistence. As-is, any simple query produces no output files.
-
----
-
-## 3. Executor returns full state instead of a partial update
-
-**File**: `src/sparq/nodes/executor.py`
-
-At the end of the step loop:
-
-```python
-    state['executor_results'] = results  # assigned inside loop, on every iteration
-return state                             # returns the entire state dict
-```
-
-Two issues, neither a correctness bug but both wrong by convention:
-
-1. `state['executor_results'] = results` runs on every loop iteration. Only the final assignment matters — all prior ones are overwritten before anything reads them. Move it outside the loop.
-
-2. `return state` returns the full state dict. LangGraph nodes should return only the fields they changed. The correct form is `return {'executor_results': results}`. Returning the whole state silently overwrites every other field with its current value, which happens to be a no-op now but becomes a source of subtle bugs if reducers or concurrent updates are ever introduced (see improvement 7).
-
-Note: this is **not** a data-loss bug. The aggregator correctly receives all step results because the final iteration's write survives in `state` and is included in the return.
-
----
-
-## 4. Global REPL namespace breaks concurrent runs
+## 1. Global REPL namespace breaks concurrent runs
 
 **File**: `src/sparq/tools/python_repl/namespace.py`
 
@@ -96,17 +32,7 @@ Two concurrent runs share the same pickle file, causing namespace collisions. Th
 
 ---
 
-## 5. Executor context grows unboundedly
-
-**File**: `src/sparq/nodes/executor.py`
-
-Each step prepends the full accumulated results from all prior steps as context. For a 10-step plan with verbose outputs, step 10 carries everything from steps 1–9. This hits context limits and degrades relevance.
-
-Better approach: maintain a **rolling summary** of prior steps. After each step completes, summarize its output to 2–3 sentences and carry only the summary forward. Keep the full output in `executor_results` for the aggregator.
-
----
-
-## 6. Plan steps have no dependency information
+## 2. Plan steps have no dependency information
 
 **File**: `src/sparq/schemas/output_schemas.py`
 
@@ -122,14 +48,14 @@ would allow the executor to topologically sort steps and run independent ones in
 
 ---
 
-## 7. State is an unvalidated TypedDict
+## 3. State is an unvalidated TypedDict
 
 **File**: `src/sparq/schemas/state.py`
 
 `State` is a plain `TypedDict`, so bad updates silently succeed at runtime. Two improvements:
 
 - Use a Pydantic model for validation on updates.
-- Add LangGraph `Annotated` reducers for fields that should merge rather than replace. In the current architecture `executor_results` is written once by the executor node, so no reducer is needed today. However, if replanning is introduced (see improvement 8) and the executor runs multiple times, a merge reducer becomes necessary to avoid the second run overwriting the first:
+- Add LangGraph `Annotated` reducers for fields that should merge rather than replace. In the current architecture `executor_results` is written once by the executor node, so no reducer is needed today. However, if replanning is introduced (see improvement 4) and the executor runs multiple times, a merge reducer becomes necessary to avoid the second run overwriting the first:
 
 ```python
 from typing import Annotated
@@ -141,7 +67,7 @@ class State(TypedDict):
 
 ---
 
-## 8. No replanning on executor failure
+## 4. No replanning on executor failure
 
 **Files**: `src/sparq/nodes/executor.py`, `src/sparq/system.py`
 
@@ -157,7 +83,7 @@ graph_init.add_conditional_edges("executor", executor_health_check, {
 
 ---
 
-## 9. Executor cannot interpret generated plots
+## 5. Executor cannot interpret generated plots
 
 **File**: `src/sparq/nodes/executor.py`, `src/sparq/tools/`
 
@@ -187,7 +113,7 @@ def interpret_plot(file_path: str) -> str:
 
 ---
 
-## 10. Figure numbering tool for executor
+## 6. Figure numbering tool for executor
 
 **Files**: `src/sparq/tools/figure_tools.py` (new), `src/sparq/nodes/executor.py`, `src/sparq/prompts/executor_message.txt`
 
@@ -208,7 +134,7 @@ The executor prompt should be updated to instruct: *"Before saving any plot, cal
 
 ---
 
-## 11. Aggregator academic referencing of outputs
+## 7. Aggregator academic referencing of outputs
 
 **Files**: `src/sparq/nodes/aggregator.py`, `src/sparq/prompts/aggregator_message.txt`, `src/sparq/system.py`
 
@@ -229,7 +155,7 @@ This mirrors how scientific papers reference figures and ensures the output is s
 
 ---
 
-## 12. Aggregator writes markdown report converted to PDF
+## 8. Aggregator writes markdown report converted to PDF
 
 **Files**: `src/sparq/nodes/aggregator.py`, `src/sparq/nodes/saver.py`, `src/sparq/system.py`
 
@@ -251,7 +177,7 @@ Currently `answer` is a plain string stored in state and dumped into `final_answ
 
 ---
 
-## 13. Multi-route router for general use cases
+## 9. Multi-route router for general use cases
 
 **Files**: `src/sparq/nodes/router.py`, `src/sparq/schemas/output_schemas.py`, `src/sparq/system.py`
 
@@ -289,7 +215,7 @@ router (enum)
 
 ---
 
-## 14. Aggregator output isn't structured
+## 10. Aggregator output isn't structured
 
 **File**: `src/sparq/nodes/aggregator.py`
 
@@ -297,7 +223,7 @@ The router, planner, and executor all use `response_format` for structured outpu
 
 ---
 
-## 15. LLM model validation at startup
+## 11. LLM model validation at startup
 
 **Files**: `src/sparq/utils/get_llm.py`, `src/sparq/system.py`
 
@@ -441,7 +367,7 @@ Estimates are for a solo developer. The team column assumes 2–3 people with no
 | v2.1 Data cleaning & validation loop | 3–4 weeks | 2–3 weeks | Nothing reusable; Cleaner + Validator nodes, feedback loop graph wiring, 4-artifact schema all new |
 | v2.2 DAG-based macro-decomposition | 4–6 weeks | 2–4 weeks | DAG schema + dependency-aware dispatcher are new; RAG sub-component alone is ~2–3 weeks |
 | v2.3 Speculative parallel execution | 5–7 weeks | 3–5 weeks | Most complex phase; REPL subsystem (~80%) reusable, but K-path fan-out, Docker infra, and self-healing loop are new |
-| v2.4 Editorial synthesis gatekeeper | 1–2 weeks | 1 week | Straightforward new node; aggregator structured output (improvement 14) is a prerequisite |
+| v2.4 Editorial synthesis gatekeeper | 1–2 weeks | 1 week | Straightforward new node; aggregator structured output (improvement 10) is a prerequisite |
 | Integration & end-to-end testing | 2–3 weeks | 1–2 weeks | Cross-phase wiring, failure mode handling, full pipeline tests |
 | **Total** | **15–22 weeks** | **9–15 weeks** | |
 
@@ -539,10 +465,10 @@ The current aggregator is a single LLM call with no validation of its output. Fo
 **Synthesis Supervisor** (`nodes/synthesis_supervisor.py`): a third independent LLM instance (separate from the Lead Supervisor and Trajectory Supervisor). It receives the original user query, the compiled Fact Packages from the execution phase, and the aggregator's draft report. It checks strictly for:
 
 - Narrative flow and internal logical consistency
-- Correct citation of figures by number (cross-checked against the figure manifest from improvement 11)
+- Correct citation of figures by number (cross-checked against the figure manifest from improvement 7)
 - Formatting alignment with scientific literature conventions
 - Factual consistency against the Fact Packages — it does not re-run code or re-audit arithmetic
 
 If the draft fails review, it is returned to the aggregator with specific editorial notes for rewrite. This loop runs up to a configurable maximum (default 3 iterations). After the ceiling is reached or the report passes, it is locked and delivered.
 
-**Relationship to existing aggregator**: the aggregator node is unchanged; the Synthesis Supervisor sits downstream of it as an additional conditional edge in the graph. The aggregator's structured output schema (improvement 14) is a prerequisite for this node to function reliably.
+**Relationship to existing aggregator**: the aggregator node is unchanged; the Synthesis Supervisor sits downstream of it as an additional conditional edge in the graph. The aggregator's structured output schema (improvement 10) is a prerequisite for this node to function reliably.

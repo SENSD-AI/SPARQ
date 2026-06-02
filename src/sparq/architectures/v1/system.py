@@ -59,7 +59,7 @@ class Agentic_system:
         graph_init.add_node("saver", self.saver_node_partial)
         
         graph_init.add_edge(START, "router")
-        graph_init.add_conditional_edges("router", router_func, {True: "planner", False: END})
+        graph_init.add_conditional_edges("router", router_func, {True: "planner", False: "saver"})
         graph_init.add_edge("planner", "executor")
         graph_init.add_edge("executor", "aggregator")
         graph_init.add_edge("aggregator", "saver")
