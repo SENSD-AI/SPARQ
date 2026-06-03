@@ -5,19 +5,24 @@ from sparq.schemas.output_schemas import Plan, ExecutorOutput
 from sparq.settings import LLMSetting
 from sparq.utils import helpers
 from sparq.utils.get_llm import get_llm
-from sparq.tools.python_repl.python_repl_tool import python_repl_tool
-from sparq.tools.python_repl.namespace import get_persistent_ns_path, load_ns
+from sparq.tools.python_repl.python_repl_tool import make_python_repl_tool
+from sparq.tools.python_repl.namespace import get_ns_path, load_ns
 from sparq.tools.filesystemtools import filesystemtools
 from sparq.tools.data_discovery_tools import load_dataset, get_sheet_names, find_csv_excel_files, get_cached_dataset_path
 
 from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 from langchain_core.messages import SystemMessage
 from langgraph.prebuilt import create_react_agent
+from langchain_core.runnables.config import RunnableConfig
 
 
-def _build_context(results: dict) -> str:
+def _build_context(results: dict, ns_path: str) -> str:
     """
     Build a context string for the current step based on previous results and the current namespace.
+
+    Args:
+        results: Previously completed step results.
+        ns_path: Path to the run-scoped namespace pickle file used to enumerate live variables.
 
     What is added to the context?
     - Previously completed steps and their results
@@ -35,7 +40,7 @@ def _build_context(results: dict) -> str:
             if data['misc']:
                 lines.append(f"  Notes: {data['misc']}")
 
-    ns = load_ns(get_persistent_ns_path())
+    ns = load_ns(ns_path)
     ns_vars = {k: type(v).__name__ for k, v in ns.items() if not k.startswith("__")}
     if ns_vars:
         lines.append("\nVariables currently in namespace:")
@@ -45,12 +50,22 @@ def _build_context(results: dict) -> str:
     return "\n".join(lines)
 
 
-def executor_node(state: State, llm_config: LLMSetting, prompt: str, output_dir: Path):
+def executor_node(state: State, config: RunnableConfig, llm_config: LLMSetting, prompt: str, output_dir: Path):
     """
-    Execute the plan
+    Execute the plan.
+
+    Args:
+        state: LangGraph state containing the plan and data context.
+        config: LangGraph RunnableConfig; must contain config["configurable"]["run_id"] to scope the REPL namespace.
+        llm_config: LLM model and provider settings for the executor.
+        prompt: System prompt template string.
+        output_dir: Directory where executor outputs (plots, files) are written.
     """
     print("Executing plan to answer your query.")
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    run_id = config.get("configurable", {}).get("run_id", "default")
+    ns_path = get_ns_path(run_id)
 
     plan: Plan = state['plan']
     llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
@@ -60,7 +75,7 @@ def executor_node(state: State, llm_config: LLMSetting, prompt: str, output_dir:
     _tools = [
         load_dataset,
         get_sheet_names,
-        python_repl_tool,
+        make_python_repl_tool(ns_path),
         find_csv_excel_files,
         get_cached_dataset_path,
     ] + (filesystemtools(working_dir=str(output_dir), selected_tools='all'))
@@ -81,7 +96,7 @@ def executor_node(state: State, llm_config: LLMSetting, prompt: str, output_dir:
     )
 
     def process_step(results: dict, step_description, step_index):
-        context = _build_context(results)
+        context = _build_context(results, ns_path)
         user_content = f"{context}\n\nYour current task:\n{step_description}" if context else step_description
         agent_input = {"messages": [{"role": "user", "content": user_content}]}
         response = agent.invoke(agent_input, config={"recursion_limit": llm_config.recursion_limit})
@@ -131,8 +146,9 @@ def test_executor(plan: Plan):
 
     data_context = load_data_context(DATA_MANIFEST_PATH, DATA_SUMMARIES_SHORT_PATH)
 
-    state = {'plan': plan, 'data_context': data_context}
-    response = executor_node(state=state, llm_config=system_settings.llm_config.executor, prompt=prompt, output_dir=run_dir)
+    assert run_dir is not None
+    state = State(query="", route=None, answer=None, plan=plan, data_context=data_context, executor_results={})
+    response = executor_node(state=state, config={"configurable": {"run_id": "test"}}, llm_config=system_settings.llm_config.executor, prompt=prompt, output_dir=run_dir)
     
     for step, result in response['executor_results'].items():
         print(step)

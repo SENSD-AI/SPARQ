@@ -11,7 +11,7 @@ import types
 from typing import Optional, List
 
 from sparq.tools.python_repl.ast_utils import extract_last_expression
-from sparq.tools.python_repl.namespace import get_persistent_ns_path, load_ns, clean_namespace, get_modules_in_namespace
+from sparq.tools.python_repl.namespace import load_ns, clean_namespace, get_modules_in_namespace
 from sparq.tools.python_repl.package_manager import PackageUtils as putils
 from sparq.tools.python_repl.schemas import OutputSchema, ExceptionInfo
 
@@ -56,27 +56,29 @@ def _namespace_summary(namespace: dict) -> dict:
     return summary
 
 
-def execute_code(code: str, persist_namespace: bool = False, timeout: int = 2*60) -> OutputSchema:
+def execute_code(code: str, ns_path: str | None = None, timeout: int = 2*60) -> OutputSchema:
     """
     Execute Python code with optional namespace persistence and timeout.
 
     Args:
         code: Python code to execute
-        persist_namespace: Whether to persist variables across executions
+        ns_path: Path to a persistent namespace pickle file. If None, a temporary namespace is used and deleted after execution.
         timeout: Maximum execution time in seconds
 
     Returns:
         OutputSchema containing execution results, including output, errors, and a
         JSON-safe namespace summary (complex objects shown as type strings).
     """
-    if persist_namespace:
-        ns_path = get_persistent_ns_path()
+    if ns_path is not None:
+        # namespace should be persisted
         ns_is_temp = False
     else:
+        # namespace should not be persisted
         ns_fd, ns_path = tempfile.mkstemp(suffix="_ns.pkl")
         with os.fdopen(ns_fd, "wb") as f:
             pickle.dump({}, f)
         ns_is_temp = True
+
 
     result_fd, result_path = tempfile.mkstemp(suffix="_result.json")
     os.close(result_fd)

@@ -1,6 +1,7 @@
 from functools import partial
 
 from pathlib import Path
+import uuid
 
 # from sparq.settings_old import Settings
 from sparq.architectures.v1.settings import V1Settings
@@ -11,6 +12,7 @@ from sparq.architectures.v1.nodes.aggregator import aggregator_node
 from sparq.architectures.v1.nodes.saver import saver_node
 from sparq.schemas.state import State
 from sparq.utils.helpers import load_text
+from sparq.tools.python_repl.namespace import cleanup_ns
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import RetryPolicy
@@ -71,9 +73,17 @@ class Agentic_system:
         self._get_node_definitions()
         self._build_graph()
 
+        # Generate a run ID
+        run_id = str(uuid.uuid4())
+
         input_data = {"query": user_query} # This will go into the State schema expected by the graph
-        async for chunk in self.graph.astream(input=input_data, stream_mode="updates"):
-            print(chunk)
+        try:
+            async for chunk in self.graph.astream(input=input_data, 
+                                                config={"configurable": {"run_id": run_id}},
+                                                stream_mode="updates"):
+                print(chunk)
+        finally:
+            cleanup_ns(run_id)
 
     def save_results(self):
         pass

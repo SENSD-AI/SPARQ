@@ -3,7 +3,23 @@ import pickle
 import tempfile
 import types
 
-_PERSISTENT_NS_PATH: str | None = None
+_ns_paths: dict[str, str] = {} # run_id -> temp file path
+
+def get_ns_path(run_id: str) -> str:
+    """Returns path to the namespace pickle file for a given run ID."""
+    # If it's a new run, create the namespace pickle file
+    if run_id not in _ns_paths or not os.path.exists(_ns_paths[run_id]):
+        fd, path = tempfile.mkstemp(suffix=f"_{run_id}_ns.pkl")
+        with os.fdopen(fd, "wb") as f:
+            pickle.dump({}, f) # Dump a new empty namespace into the file
+        _ns_paths[run_id] = path
+    
+    return _ns_paths[run_id]
+
+def cleanup_ns(run_id: str):
+    path = _ns_paths.pop(run_id, None)
+    if path and os.path.exists(path):
+        os.unlink(path)
 
 
 def get_persistent_ns_path() -> str:

@@ -1,19 +1,22 @@
 import unittest
 
 from sparq.tools.python_repl.executor import execute_code
-from sparq.tools.python_repl.namespace import clear_persistent_namespace
+from sparq.tools.python_repl.namespace import get_ns_path, cleanup_ns
 
 
 class TestExecutor(unittest.TestCase):
 
     def setUp(self):
-        """Clear persistent namespace before each test."""
-        clear_persistent_namespace()
+        """Create a fresh run-scoped namespace before each test."""
+        self.ns_path = get_ns_path("test")
+
+    def tearDown(self):
+        cleanup_ns("test")
     
     def test_basic_execution(self):
         """Test basic variable assignment and expression evaluation."""
         code = "a = 1\nb = 2\na + b"
-        result = execute_code(code, persist_namespace=False, timeout=5)
+        result = execute_code(code, ns_path=None, timeout=5)
         
         self.assertTrue(result.success)
         self.assertEqual(result.output, "3")
@@ -28,7 +31,7 @@ class TestExecutor(unittest.TestCase):
         """Test module import and usage."""
         # First execution: import math
         code1 = "import math"
-        result1 = execute_code(code1, persist_namespace=True, timeout=5)
+        result1 = execute_code(code1, ns_path=self.ns_path, timeout=5)
         
         self.assertTrue(result1.success)
         # Module should be in result.namespace["__modules__"], NOT directly in result.namespace
@@ -37,7 +40,7 @@ class TestExecutor(unittest.TestCase):
         
         # Second execution: use math (should persist)
         code2 = "math.sqrt(16)"
-        result2 = execute_code(code2, persist_namespace=True, timeout=5)
+        result2 = execute_code(code2, ns_path=self.ns_path, timeout=5)
         
         self.assertTrue(result2.success)
         self.assertEqual(result2.output, "4.0")
@@ -47,30 +50,30 @@ class TestExecutor(unittest.TestCase):
     def test_persistence(self):
         """Test that variables persist across executions."""
         # Execution 1: Define variable
-        result1 = execute_code("x = 10", persist_namespace=True, timeout=5)
+        result1 = execute_code("x = 10", ns_path=self.ns_path, timeout=5)
         self.assertTrue(result1.success)
         self.assertIn("x", result1.namespace)
         
         # Execution 2: Use persisted variable
-        result2 = execute_code("y = x + 5", persist_namespace=True, timeout=5)
+        result2 = execute_code("y = x + 5", ns_path=self.ns_path, timeout=5)
         self.assertTrue(result2.success)
         self.assertEqual(result2.output, "")  # No expression, just assignment
         self.assertIn("y", result2.namespace)
         self.assertEqual(result2.namespace["y"], 15)
         
         # Execution 3: Access both variables
-        result3 = execute_code("x + y", persist_namespace=True, timeout=5)
+        result3 = execute_code("x + y", ns_path=self.ns_path, timeout=5)
         self.assertTrue(result3.success)
         self.assertEqual(result3.output, "25")
 
     def test_non_persistence(self):
-        """Test that variables don't persist when persist_namespace=False."""
+        """Test that variables don't persist when ns_path=None."""
         # Execution 1: Define variable
-        result1 = execute_code("x = 10", persist_namespace=False, timeout=5)
+        result1 = execute_code("x = 10", ns_path=None, timeout=5)
         self.assertTrue(result1.success)
         
         # Execution 2: Try to use variable (should fail)
-        result2 = execute_code("x + 5", persist_namespace=False, timeout=5)
+        result2 = execute_code("x + 5", ns_path=None, timeout=5)
         self.assertFalse(result2.success)
         self.assertIsNotNone(result2.error)
         self.assertEqual(result2.error.type, "NameError")
@@ -78,7 +81,7 @@ class TestExecutor(unittest.TestCase):
     def test_syntax_error(self):
         """Test handling of syntax errors."""
         code = "if True"  # Missing colon
-        result = execute_code(code, persist_namespace=False, timeout=5)
+        result = execute_code(code, ns_path=None, timeout=5)
         
         self.assertFalse(result.success)
         self.assertIsNotNone(result.error)
@@ -87,7 +90,7 @@ class TestExecutor(unittest.TestCase):
     def test_runtime_error(self):
         """Test handling of runtime errors."""
         code = "1 / 0"
-        result = execute_code(code, persist_namespace=False, timeout=5)
+        result = execute_code(code, ns_path=None, timeout=5)
         
         self.assertFalse(result.success)
         self.assertIsNotNone(result.error)
@@ -96,7 +99,7 @@ class TestExecutor(unittest.TestCase):
     def test_timeout(self):
         """Test that code execution times out properly."""
         code = "import time\ntime.sleep(10)"
-        result = execute_code(code, persist_namespace=False, timeout=1)
+        result = execute_code(code, ns_path=None, timeout=1)
         
         self.assertFalse(result.success)
         self.assertIsNotNone(result.error)
@@ -110,7 +113,7 @@ def add(a, b):
 
 add(3, 5)
 """
-        result = execute_code(code, persist_namespace=False, timeout=5)
+        result = execute_code(code, ns_path=None, timeout=5)
         
         self.assertTrue(result.success)
         self.assertEqual(result.output, "8")
@@ -126,7 +129,7 @@ def fib(n):
 
 fib(10)
 """
-        result = execute_code(code, persist_namespace=False, timeout=5)
+        result = execute_code(code, ns_path=None, timeout=5)
         
         self.assertTrue(result.success)
         self.assertEqual(result.output, "55")
@@ -134,7 +137,7 @@ fib(10)
     def test_unpicklable_object(self):
         """Test handling of unpicklable objects."""
         code = "f = lambda x: x * 2"                                        # Lambda functions are not picklable
-        result = execute_code(code, persist_namespace=False, timeout=5)
+        result = execute_code(code, ns_path=None, timeout=5)
         
         self.assertTrue(result.success)
         self.assertIn("f", result.namespace['__unpicklable__'])
@@ -142,7 +145,7 @@ fib(10)
     def test_print_statements(self):
         """Test that print statements are captured."""
         code = "print('Hello, World!')"
-        result = execute_code(code, persist_namespace=False, timeout=5)
+        result = execute_code(code, ns_path=None, timeout=5)
         
         self.assertTrue(result.success)
         self.assertEqual(result.output, "Hello, World!")
@@ -150,7 +153,7 @@ fib(10)
     def test_multiple_imports(self):
         """Test importing multiple modules."""
         code1 = "import math\nimport json"
-        result1 = execute_code(code1, persist_namespace=True, timeout=5)
+        result1 = execute_code(code1, ns_path=self.ns_path, timeout=5)
         
         self.assertTrue(result1.success)
         self.assertIn("math", result1.namespace.get("__modules__", {}))
@@ -158,7 +161,7 @@ fib(10)
         
         # Use both modules
         code2 = "math.pi"
-        result2 = execute_code(code2, persist_namespace=True, timeout=5)
+        result2 = execute_code(code2, ns_path=self.ns_path, timeout=5)
         self.assertTrue(result2.success)
 
     def test_saving_plots(self):
@@ -169,7 +172,7 @@ fib(10)
 plt.plot([1, 2, 3], [4, 5, 6])
 plt.savefig('test_plot.png')
 """
-        result = execute_code(code, persist_namespace=False, timeout=5)
+        result = execute_code(code, ns_path=None, timeout=5)
         self.assertTrue(result.success)
 
         # Check that the plot file was created
