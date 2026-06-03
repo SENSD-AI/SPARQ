@@ -8,7 +8,7 @@ from sparq.utils.get_llm import get_llm
 from sparq.tools.python_repl.python_repl_tool import make_python_repl_tool
 from sparq.tools.python_repl.namespace import get_ns_path, load_ns
 from sparq.tools.filesystemtools import filesystemtools
-from sparq.tools.data_discovery_tools import load_dataset, get_sheet_names, find_csv_excel_files, get_cached_dataset_path
+from sparq.tools.data_discovery_tools import make_load_dataset_tool, get_sheet_names, find_csv_excel_files, get_cached_dataset_path
 
 from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 from langchain_core.messages import SystemMessage
@@ -73,7 +73,7 @@ def executor_node(state: State, config: RunnableConfig, llm_config: LLMSetting, 
     data_context = state.data_context
 
     _tools = [
-        load_dataset,
+        make_load_dataset_tool(ns_path),
         get_sheet_names,
         make_python_repl_tool(ns_path),
         find_csv_excel_files,

@@ -3,7 +3,8 @@ import pickle
 import tempfile
 import types
 
-_ns_paths: dict[str, str] = {} # run_id -> temp file path
+_ns_paths: dict[str, str] = {}  # run_id -> temp file path
+_PERSISTENT_NS_PATH: str | None = None
 
 def get_ns_path(run_id: str) -> str:
     """Returns path to the namespace pickle file for a given run ID."""
