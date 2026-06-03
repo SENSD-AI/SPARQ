@@ -1,15 +1,9 @@
 # utils.py
-from typing import Dict, List, Optional
-
-from pandas import DataFrame
-from rich.console import Console
-from rich.table import Table
-
-import os
-
+# Only stdlib imports at the top level — see docs/repl.md for why.
 import json
-import pandas as pd
+import os
 from pathlib import Path
+from typing import Dict, List, Optional
 
 
 def load_text(file_path):
@@ -33,7 +27,8 @@ def save_text(text, filepath, time_stamp=True):
         f.write(text)
 
 
-def get_df_summary(df: DataFrame):
+def get_df_summary(df):
+    from pandas import DataFrame
     summary = DataFrame({
         'Column': df.columns,
         'Non-Null Count': df.notnull().sum(),
@@ -72,13 +67,14 @@ def get_df_summary_from_excel(file_path) -> dict[str, str]:
 def get_df_summaries_from_manifest(manifest: dict[str, dict[str, str]]) -> dict[str, str]:
     """
     Extracts data summaries from a manifest dictionary.
-    
+
     Args:
         manifest (dict): Dictionary containing dataset information.
-        
+
     Returns:
         dict: Dictionary with sheet names as keys and data summaries (columns, non null counts, dtypes) in markdown format as values.
     """
+    import pandas as pd
     from sparq.tools.data_discovery_tools import get_cached_dataset_path, find_csv_excel_files
 
     df_summaries = {}
@@ -171,6 +167,8 @@ def render_records_table(records: List[Dict], columns: Optional[List[str]] = Non
     needs the rendered text instead, they should use a separate capture
     Console (not provided here).
     """
+    from rich.console import Console
+    from rich.table import Table
     console = Console()
 
     # Empty records -> print an empty table (with optional title)
