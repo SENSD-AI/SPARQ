@@ -13,6 +13,7 @@
 | Multi-route router for general use cases | High | High (product scope) | [ ] |
 | Aggregator output isn't structured | Low | Medium (robustness) | [ ] |
 | LLM model validation at startup | Low | Medium (reliability) | [ ] |
+| Human-readable REPL tracebacks | Low | Medium (debuggability) | [x] |
 
 ---
 
@@ -208,6 +209,47 @@ Add a `validate_llm(model, provider, node)` function to `get_llm.py` with per-pr
 - **`openrouter`** — no programmatic check available; skipped.
 
 Add a `_validate_models()` method to `Agentic_system` called at the end of `__init__`, iterating over all non-`None` entries in `self.settings.llm_config` and calling `validate_llm` for each. Validation failures raise `ValueError` immediately; legacy lifecycle emits `warnings.warn`.
+
+---
+
+## 10. REPL tracebacks don't show source lines
+
+**Files**: `src/sparq/tools/python_repl/executor.py`, `src/sparq/tools/python_repl/python_repl_tool.py`
+
+When the executor agent's code raises an exception, the traceback currently reads:
+
+```
+File ".../executor.py", line 227, in _target
+  exec("\n".join(statements), namespace)
+File "<string>", line 13, in <module>
+TypeError: 'builtin_function_or_method' object is not iterable
+```
+
+The internal `executor.py` frame is noise. `File "<string>"` tells the agent nothing about what was on line 13. The agent has to re-read its own previous tool call to infer what went wrong.
+
+The root cause is that `exec(code, namespace)` registers the source as `"<string>"`, so Python's traceback formatter has no source lines to display. The fix uses the same mechanism IPython/Jupyter uses: **inject the source into `linecache`** before execution so Python can retrieve lines by filename when formatting the traceback.
+
+**Changes to `_target` in `executor.py`:**
+
+1. Reconstruct `full_source` from `statements + expr` (reversing the `extract_last_expression` split).
+2. Register it in `linecache.cache["<repl>"]` with the format Python expects: `(size, mtime, lines, fullname)`.
+3. Replace `exec("\n".join(statements), namespace)` with `compile(..., "<repl>", "exec")` + `exec`.
+4. For the `eval(expr, ...)` call: use `ast.parse` + `ast.increment_lineno` to offset the expression to its correct line number in the original source, then compile the shifted AST with `"<repl>"`.
+
+**Changes to `python_repl_tool.py`:**
+
+Include the submitted code block in the error response so the agent sees its full submission alongside the error, not just the failing lines.
+
+**Result** — the traceback the agent sees becomes:
+
+```
+File "<repl>", line 13, in <module>
+  for item in list.sort():
+              ^^^^^^^^^^^
+TypeError: 'builtin_function_or_method' object is not iterable
+```
+
+This lets the agent immediately identify the offending line without re-reading prior context, reducing unnecessary retry turns.
 
 ---
 

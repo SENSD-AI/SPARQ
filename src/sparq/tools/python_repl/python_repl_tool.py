@@ -28,7 +28,16 @@ def make_python_repl_tool(ns_path: str):
         if execution_result.success:
             response = f"✓ Code executed successfully.\nOutput:\n{execution_result.output}"
         else:
-            response = f"✗ Execution failed.\nError ({execution_result.error.type}): {execution_result.error.message}\n\nTraceback:\n{execution_result.error.traceback}\nExtra Context:\n{execution_result.error.extra_context}"
+            # Include the submitted code so the agent can see exactly what it wrote
+            # alongside the traceback — without this it would have to reconstruct the
+            # context from prior messages to understand what went wrong.
+            response = (
+                f"✗ Execution failed.\n\n"
+                f"Code submitted:\n{code}\n\n"
+                f"Error ({execution_result.error.type}): {execution_result.error.message}\n\n"
+                f"Traceback:\n{execution_result.error.traceback}\n"
+                f"Extra Context:\n{execution_result.error.extra_context}"
+            )
         
         return response, execution_result
 

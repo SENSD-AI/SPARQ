@@ -197,5 +197,16 @@ plt.savefig('test_plot.png')
         if os.path.exists('test_plot.png'):
             os.remove('test_plot.png')
 
+    def test_traceback_shows_source_line(self):
+        """Test that runtime error tracebacks reference '<repl>' and show the offending source line."""
+        code = "x = [1, 2, 3]\nfor item in x.sort():\n    print(item)"
+        result = execute_code(code, ns_path=None, timeout=5)
+        self.assertFalse(result.success)
+        self.assertIsNotNone(result.error)
+        # The traceback must reference "<repl>" (not the opaque "<string>")
+        self.assertIn("<repl>", result.error.traceback)
+        # The offending source line must appear in the traceback
+        self.assertIn("x.sort()", result.error.traceback)
+
 if __name__ == "__main__":
     unittest.main()

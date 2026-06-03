@@ -9,9 +9,9 @@ import tempfile
 import traceback
 import types
 
-from typing import Optional, List
+import ast
 
-from sparq.tools.python_repl.ast_utils import extract_last_expression
+from sparq.tools.python_repl.ast_utils import rewrite_last_expr, compile_for_repl
 from sparq.tools.python_repl.namespace import load_ns, clean_namespace, get_modules_in_namespace
 from sparq.tools.python_repl.package_manager import PackageUtils as putils
 from sparq.tools.python_repl.schemas import OutputSchema, ExceptionInfo
@@ -134,17 +134,10 @@ def _execute_code_in_new_process(code: str, timeout: int = 10, ns_path: str = ""
         OutputSchema with output, error, success, and JSON-safe namespace summary.
         The parent process never deserializes numpy/pandas objects.
     """
-    statements, expr, syntax_error = extract_last_expression(code)
-    if syntax_error:
-        return OutputSchema(
-            output="",
-            error=ExceptionInfo(type="SyntaxError", message=str(syntax_error), traceback="", extra_context={}),
-            namespace={},
-            success=False
-        )
-
+    # Spawn a fresh child process per execution for full isolation and timeout control.
+    # Syntax errors are caught naturally inside _target via ast.parse.
     ctx = mp.get_context("spawn")
-    process = ctx.Process(target=_target, args=(statements, expr, ns_path, result_path))
+    process = ctx.Process(target=_target, args=(code, ns_path, result_path))
     process.start()
     process.join(timeout)
 
@@ -188,14 +181,19 @@ def _execute_code_in_new_process(code: str, timeout: int = 10, ns_path: str = ""
         )
 
 
-def _target(statements: Optional[List[str]], expr: str, ns_path: str, result_path: str) -> None:
+def _target(code: str, ns_path: str, result_path: str) -> None:
     """
-    Target function for subprocess execution.
+    Target function run inside the spawned subprocess.
 
-    - Reads namespace from ns_path
-    - Executes code
-    - On success: merges new variables back into ns_path
-    - Writes a JSON result to result_path (never contains raw numpy/pandas objects)
+    Execution flow:
+      1. Load the persisted namespace from disk.
+      2. Re-import any modules tracked from prior executions (modules can't be
+         pickled, so they're stored by name and re-imported here).
+      3. Parse the code, rewrite the last bare expression for value capture,
+         and compile with linecache registration for human-readable tracebacks.
+      4. exec() the compiled code object.
+      5. On success: merge updated variables back into the namespace pickle file.
+      6. Write a JSON result to result_path.
     """
     result = OutputSchema(output="", error=None, success=False, namespace={})
 
@@ -223,19 +221,29 @@ def _target(statements: Optional[List[str]], expr: str, ns_path: str, result_pat
     stderr_buffer = io.StringIO()
     try:
         with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
-            if statements:
-                exec("\n".join(statements), namespace)
+            # Parse → rewrite last expr for value capture → compile with linecache.
+            # ast.parse raises SyntaxError here if the code is invalid; it is caught
+            # by the outer except block and written to result_path like any other error.
+            tree = ast.parse(code)
+            tree, has_result = rewrite_last_expr(tree)
+            code_obj = compile_for_repl(code, tree)
+            exec(code_obj, namespace)
 
-            output = ""
-            if expr:
-                eval_result = eval(expr, namespace)
-                if eval_result is None:
-                    stdout_text = stdout_buffer.getvalue().strip()
-                    output = stdout_text if stdout_text else "None"
-                else:
-                    output = str(eval_result)
+            # Retrieve the last-expression value stored by the AST rewrite.
+            # A sentinel (not None) distinguishes three cases:
+            #   a) No bare expression in code          → repl_result is _sentinel
+            #   b) Expression evaluated to None        → repl_result is None
+            #   c) Expression evaluated to some value  → repl_result is that value
+            # Without a sentinel, cases (a) and (b) look identical.
+            _sentinel = object()
+            repl_result = namespace.pop("__repl_result__", _sentinel) if has_result else _sentinel
+
+            stdout_text = stdout_buffer.getvalue().strip()
+            if has_result and repl_result is not _sentinel:
+                # Expression was present and evaluated successfully
+                output = (stdout_text if stdout_text else "None") if repl_result is None else str(repl_result)
             else:
-                stdout_text = stdout_buffer.getvalue().strip()
+                # No bare expression — output is whatever was printed to stdout
                 output = stdout_text if stdout_text else ""
 
         stderr_text = stderr_buffer.getvalue().strip()
