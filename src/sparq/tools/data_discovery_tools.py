@@ -4,8 +4,7 @@ from langchain_experimental.utilities import PythonREPL
 from langgraph.types import Command
 from langchain_core.messages import ToolMessage
 
-import pickle
-from sparq.tools.python_repl.namespace import load_ns
+from sparq.tools.python_repl.executor import execute_code
 
 
 from pathlib import Path
@@ -29,27 +28,26 @@ def make_load_dataset_tool(ns_path: str):
         Returns:
             str: A confirmation message with a preview of the loaded dataset.
         """
-        import pandas as pd
-
         if file_path.endswith('.csv'):
-            try:
-                df = pd.read_csv(file_path)
-            except Exception as e:
-                return f"PythonError: {e}"
+            load_line = f"{var_name} = pd.read_csv({repr(file_path)})"
         elif file_path.endswith('.xlsx') and sheet_name:
-            try:
-                df = pd.read_excel(file_path, sheet_name=sheet_name)
-            except Exception as e:
-                return f"PythonError: {e}"
+            load_line = f"{var_name} = pd.read_excel({repr(file_path)}, sheet_name={repr(sheet_name)})"
         else:
-            raise ValueError("Unsupported file format or missing sheet name for Excel file.")
+            return "Error: Unsupported file format or missing sheet_name for Excel files."
 
-        ns = load_ns(ns_path)
-        ns[var_name] = df
-        with open(ns_path, "wb") as f:
-            pickle.dump(ns, f)
+        # Load the dataset and return a preview in one subprocess call.
+        # The last expression (to_markdown) becomes __repl_result__ via the AST rewrite,
+        # so execute_code returns it as output.
+        # Running inside execute_code ensures pandas is auto-installed if missing,
+        # and the DataFrame is written into ns_path by the subprocess — avoiding the
+        # cross-process pickle deserialization problem. See docs/repl.md for details.
+        code = f"import pandas as pd\n{load_line}\n{var_name}.head().to_markdown()"
+        result = execute_code(code, ns_path=ns_path)
 
-        return f"Loaded dataset into variable `{var_name}`.\n\nPreview:\n{df.head().to_markdown()}"
+        if result.success:
+            return f"Loaded dataset into variable `{var_name}`.\n\nPreview:\n{result.output}"
+        else:
+            return f"Failed to load dataset: {result.error.message}"
 
     return load_dataset
 
