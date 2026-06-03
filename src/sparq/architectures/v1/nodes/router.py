@@ -10,7 +10,7 @@ def router_func(router_output):
     """
     Function to determine the route of the query
     """
-    return router_output['route']
+    return router_output.route
 
 def router_node(state: State, llm_config: LLMSetting, prompt: str):
     """
@@ -18,7 +18,7 @@ def router_node(state: State, llm_config: LLMSetting, prompt: str):
     """
     llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
     structured_llm = llm.with_structured_output(Router)
-    response = cast(Router, structured_llm.invoke([SystemMessage(content=prompt), HumanMessage(content=state['query'])]))
+    response = cast(Router, structured_llm.invoke([SystemMessage(content=prompt), HumanMessage(content=state.query)]))
 
     return {
         'route': response.route,

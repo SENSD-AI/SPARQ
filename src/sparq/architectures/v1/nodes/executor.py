@@ -67,10 +67,10 @@ def executor_node(state: State, config: RunnableConfig, llm_config: LLMSetting, 
     run_id = config.get("configurable", {}).get("run_id", "default")
     ns_path = get_ns_path(run_id)
 
-    plan: Plan = state['plan']
+    plan: Plan = state.plan
     llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
 
-    data_context = state['data_context']
+    data_context = state.data_context
 
     _tools = [
         load_dataset,

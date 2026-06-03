@@ -6,11 +6,11 @@ from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 from langchain_core.messages import BaseMessage
 
 def aggregator_node(state: State, llm_config: LLMSetting, prompt: str):
-    executor_results: dict = state['executor_results']
+    executor_results: dict = state.executor_results
     llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
 
     system_prompt_template: BasePromptTemplate = PromptTemplate.from_template(prompt).partial(
-        user_query=state['query'],
+        user_query=state.query,
         # plan=str(state['plan']),
         execution_results=str(executor_results)
     )

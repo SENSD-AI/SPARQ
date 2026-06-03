@@ -35,7 +35,7 @@ def planner_node(state: State, llm_config: LLMSetting, sys_prompt: str):
     system_prompt: SystemMessage = SystemMessage(content=_system_prompt)
 
     structured_llm = llm.with_structured_output(Plan)
-    plan = structured_llm.invoke([system_prompt, HumanMessage(content=state['query'])])
+    plan = structured_llm.invoke([system_prompt, HumanMessage(content=state.query)])
 
     print("Created plan")
     return {'plan': plan, 'data_context': data_context}

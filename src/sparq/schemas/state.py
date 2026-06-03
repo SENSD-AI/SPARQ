@@ -4,12 +4,12 @@ from sparq.schemas.data_context import DataContext
 
 class State(BaseModel):
     query: str
-    route: bool | None
-    answer: str | None
-    plan: Plan | None
+    route: bool | None = None
+    answer: str | None = None
+    plan: Plan | None = None
 
     # data-specific
-    data_context: DataContext | None
+    data_context: DataContext | None = None
 
     # executor-specific
-    executor_results: dict
+    executor_results: dict = {}
