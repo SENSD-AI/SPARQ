@@ -79,7 +79,7 @@ def get_df_summaries_from_manifest(manifest: dict[str, dict[str, str]]) -> dict[
     Returns:
         dict: Dictionary with sheet names as keys and data summaries (columns, non null counts, dtypes) in markdown format as values.
     """
-    from sparq.tools.tools import get_cached_dataset_path, find_csv_excel_files
+    from sparq.tools.data_discovery_tools import get_cached_dataset_path, find_csv_excel_files
 
     df_summaries = {}
     
