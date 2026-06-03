@@ -4,9 +4,7 @@
 
 | Change | Effort | Impact | Done |
 |--------|--------|--------|------|
-| Scope REPL namespace to run ID | Low | High (concurrency safety) | [x] |
 | Step dependency + parallel execution | Medium | High (throughput) | [ ] |
-| State as Pydantic with reducers | Medium | Medium (robustness) | [x] |
 | Executor → planner feedback loop | High | High (resilience) | [ ] |
 | Plot interpretation via agent-controlled tool | Medium | High (output quality) | [ ] |
 | Figure numbering tool for executor | Low | Medium (output quality) | [ ] |
@@ -18,106 +16,7 @@
 
 ---
 
-## 1. Global REPL namespace breaks concurrent runs
-
-**Files**: `src/sparq/tools/python_repl/namespace.py`, `src/sparq/tools/python_repl/executor.py`, `src/sparq/tools/python_repl/python_repl_tool.py`, `src/sparq/architectures/v1/nodes/executor.py`
-
-The persistent namespace path is a module-level global:
-
-```python
-_PERSISTENT_NS_PATH = None  # single global per process
-```
-
-Two concurrent runs share the same pickle file, causing namespace collisions. Additionally, a per-invocation random ID (e.g. `uuid4()` inside the node) breaks replanning (improvement 4) — the second executor invocation would start with an empty namespace, losing everything the first run computed.
-
-The fix uses `RunnableConfig`: a `run_id` is generated once in `system.py` at the start of each `run()` call and passed explicitly into `graph.astream()` via `config={"configurable": {"run_id": run_id}}`. LangGraph then injects this config into every node invocation, including re-invocations of the same node within one run (e.g. replanning). The namespace temp file is cleaned up in a `finally` block after the graph completes, so files don't accumulate.
-
-**`namespace.py`** — replace the module-level global with a process-level dict keyed by `run_id`, and add a cleanup function:
-
-```python
-_ns_paths: dict[str, str] = {}
-
-def get_ns_path_for_run(run_id: str) -> str:
-    if run_id not in _ns_paths or not os.path.exists(_ns_paths[run_id]):
-        fd, path = tempfile.mkstemp(suffix=f"_{run_id}_persistent_ns.pkl")
-        with os.fdopen(fd, "wb") as f:
-            pickle.dump({}, f)
-        _ns_paths[run_id] = path
-    return _ns_paths[run_id]
-
-def cleanup_ns_for_run(run_id: str):
-    path = _ns_paths.pop(run_id, None)
-    if path and os.path.exists(path):
-        os.unlink(path)
-```
-
-Remove `get_persistent_ns_path` and `clear_persistent_namespace`.
-
-**`executor.py` (REPL)** — replace `persist_namespace: bool` with `ns_path: str | None`:
-
-```python
-def execute_code(code: str, ns_path: str | None = None, timeout: int = 2*60) -> OutputSchema:
-    if ns_path is not None:
-        ns_is_temp = False
-    else:
-        ns_fd, ns_path = tempfile.mkstemp(suffix="_ns.pkl")
-        with os.fdopen(ns_fd, "wb") as f:
-            pickle.dump({}, f)
-        ns_is_temp = True
-```
-
-**`python_repl_tool.py`** — change the module-level `@tool` to a factory so the run-scoped path is baked in as a closure. The LLM still controls `persist_namespace`; the path it resolves to is now run-scoped:
-
-```python
-def make_python_repl_tool(ns_path: str):
-    @tool(args_schema=PythonREPLInput, response_format='content_and_artifact')
-    def python_repl_tool(code: str = "", persist_namespace: bool = False):
-        execution_result = execute_code(code or "", ns_path=ns_path if persist_namespace else None)
-        ...
-    return python_repl_tool
-```
-
-**`nodes/executor.py`** — accept `RunnableConfig`, resolve the `ns_path`, pass it to the tool factory and to `_build_context`:
-
-```python
-from langgraph.types import RunnableConfig
-
-def executor_node(state: State, config: RunnableConfig, llm_config: ..., prompt: ..., output_dir: ...):
-    run_id = config.get("configurable", {}).get("run_id", "default")
-    ns_path = get_ns_path_for_run(run_id)
-
-    _tools = [..., make_python_repl_tool(ns_path), ...]
-    ...
-    context = _build_context(results, ns_path)
-```
-
-`_build_context` gains a `ns_path: str` parameter replacing the `get_persistent_ns_path()` call on line 38.
-
-**`system.py`** — generate `run_id` explicitly and clean up after the graph finishes:
-
-```python
-import uuid
-from sparq.tools.python_repl.namespace import cleanup_ns_for_run
-
-async def run(self, user_query: str):
-    self._get_node_definitions()
-    self._build_graph()
-    run_id = str(uuid.uuid4())
-    input_data = {"query": user_query}
-    try:
-        async for chunk in self.graph.astream(
-            input=input_data,
-            config={"configurable": {"run_id": run_id}},
-            stream_mode="updates"
-        ):
-            print(chunk)
-    finally:
-        cleanup_ns_for_run(run_id)
-```
-
----
-
-## 2. Plan steps have no dependency information
+## 1. Plan steps have no dependency information
 
 **File**: `src/sparq/schemas/output_schemas.py`
 
@@ -133,26 +32,7 @@ would allow the executor to topologically sort steps and run independent ones in
 
 ---
 
-## 3. State is an unvalidated TypedDict
-
-**File**: `src/sparq/schemas/state.py`
-
-`State` is a plain `TypedDict`, so bad updates silently succeed at runtime. Two improvements:
-
-- Use a Pydantic model for validation on updates.
-- Add LangGraph `Annotated` reducers for fields that should merge rather than replace. In the current architecture `executor_results` is written once by the executor node, so no reducer is needed today. However, if replanning is introduced (see improvement 4) and the executor runs multiple times, a merge reducer becomes necessary to avoid the second run overwriting the first:
-
-```python
-from typing import Annotated
-import operator
-
-class State(TypedDict):
-    executor_results: Annotated[dict, operator.or_]
-```
-
----
-
-## 4. No replanning on executor failure
+## 2. No replanning on executor failure
 
 **Files**: `src/sparq/nodes/executor.py`, `src/sparq/system.py`
 
@@ -168,7 +48,7 @@ graph_init.add_conditional_edges("executor", executor_health_check, {
 
 ---
 
-## 5. Executor cannot interpret generated plots
+## 3. Executor cannot interpret generated plots
 
 **File**: `src/sparq/nodes/executor.py`, `src/sparq/tools/`
 
@@ -198,7 +78,7 @@ def interpret_plot(file_path: str) -> str:
 
 ---
 
-## 6. Figure numbering tool for executor
+## 4. Figure numbering tool for executor
 
 **Files**: `src/sparq/tools/figure_tools.py` (new), `src/sparq/nodes/executor.py`, `src/sparq/prompts/executor_message.txt`
 
@@ -219,7 +99,7 @@ The executor prompt should be updated to instruct: *"Before saving any plot, cal
 
 ---
 
-## 7. Aggregator academic referencing of outputs
+## 5. Aggregator academic referencing of outputs
 
 **Files**: `src/sparq/nodes/aggregator.py`, `src/sparq/prompts/aggregator_message.txt`, `src/sparq/system.py`
 
@@ -240,7 +120,7 @@ This mirrors how scientific papers reference figures and ensures the output is s
 
 ---
 
-## 8. Aggregator writes markdown report converted to PDF
+## 6. Aggregator writes markdown report converted to PDF
 
 **Files**: `src/sparq/nodes/aggregator.py`, `src/sparq/nodes/saver.py`, `src/sparq/system.py`
 
@@ -262,7 +142,7 @@ Currently `answer` is a plain string stored in state and dumped into `final_answ
 
 ---
 
-## 9. Multi-route router for general use cases
+## 7. Multi-route router for general use cases
 
 **Files**: `src/sparq/nodes/router.py`, `src/sparq/schemas/output_schemas.py`, `src/sparq/system.py`
 
@@ -288,7 +168,7 @@ router (enum)
    - `vision_node`: multimodal LLM call on user-uploaded images; result stored in state for aggregator
    - `web_search_node`: ReAct agent with a web search tool (e.g. Tavily) for literature surveys and general research questions
 
-4. **Aggregator becomes route-aware** — inputs differ per path (executor results dict vs. vision response vs. search results). Either normalize upstream so aggregator always sees the same shape, or make the aggregator prompt conditional on `state["route"]`
+4. **Aggregator becomes route-aware** — inputs differ per path (executor results dict vs. vision response vs. search results). Either normalize upstream so aggregator always sees the same shape, or make the aggregator prompt conditional on `state.route`
 
 5. **State** — add `vision_input: list | None` for image content blocks; `route` field typed to the new enum
 
@@ -300,7 +180,7 @@ router (enum)
 
 ---
 
-## 10. Aggregator output isn't structured
+## 8. Aggregator output isn't structured
 
 **File**: `src/sparq/nodes/aggregator.py`
 
@@ -308,7 +188,7 @@ The router, planner, and executor all use `response_format` for structured outpu
 
 ---
 
-## 11. LLM model validation at startup
+## 9. LLM model validation at startup
 
 **Files**: `src/sparq/utils/get_llm.py`, `src/sparq/system.py`
 
@@ -328,105 +208,6 @@ Add a `validate_llm(model, provider, node)` function to `get_llm.py` with per-pr
 - **`openrouter`** — no programmatic check available; skipped.
 
 Add a `_validate_models()` method to `Agentic_system` called at the end of `__init__`, iterating over all non-`None` entries in `self.settings.llm_config` and calling `validate_llm` for each. Validation failures raise `ValueError` immediately; legacy lifecycle emits `warnings.warn`.
-
----
-
-# v1 → v2 Infrastructure Bridge
-
-The following changes are prerequisite scaffolding — neither pure v1 bug fixes nor v2 features. They restructure the codebase to support multiple architectures so that v2 can be built alongside v1 without shared-config collisions or hardcoded paths.
-
-## Bridge Priority Summary
-
-| Change | Effort | Impact | Done |
-|--------|--------|--------|------|
-| `architectures/` directory structure | Low | High (prerequisite for all below) | [x] |
-| `BaseAgenticSettings` refactor in `settings.py` | Low | High (enables per-arch subclassing) | [x] |
-| Per-architecture `settings.py` + `default_config.toml` | Low | High (eliminates config discrepancy) | [x] |
-| `--architecture` CLI arg in `__main__.py` | Low | High (runtime arch selection) | [x] |
-| `setup.py` multi-architecture config copy | Low | Medium (first-run correctness) | [x] |
-| Test suite update for new settings structure | Low | Medium (keeps CI green) | [x] |
-
----
-
-## Bridge.1. `architectures/` Directory Structure
-
-**Status: done.**
-
-`src/sparq/architectures/v1/` (nodes, system, prompts, `__init__.py`) and `src/sparq/architectures/v2/` (stub `__init__.py`) have been created. `__main__.py` imports `Agentic_system` from `architectures/v1/system`.
-
----
-
-## Bridge.2. `BaseAgenticSettings` Refactor
-
-**File**: `src/sparq/settings.py`
-
-Rename `AgenticSystemSettings` → `BaseAgenticSettings`. Remove `llm_config: LLMSettings` and `model_config` — both are architecture-specific and belong in subclasses. Remove `LLMSettings` class (moves to `v1/settings.py`). Remove module-level constants `INNER_CONFIG_PATH`, `DEV_CONFIG_PATH`, `USER_CONFIG_PATH` — replaced by per-architecture constants.
-
-Keep: `LLMSetting`, `PathSettings`, `ENVSettings`, and `settings_customise_sources` (inherited by subclasses; provides `deep_merge=True` for TOML layering).
-
----
-
-## Bridge.3. Per-Architecture `settings.py` + `default_config.toml`
-
-**New files**: `src/sparq/architectures/v1/settings.py`, `src/sparq/architectures/v1/default_config.toml`
-
-**`v1/settings.py`** defines:
-
-- Path constants:
-  ```python
-  V1_INNER_CONFIG = Path(__file__).parent / "default_config.toml"
-  V1_DEV_CONFIG   = get_project_root() / "config_v1.toml"
-  V1_USER_CONFIG  = get_user_config_dir() / "v1" / "config.toml"
-  ```
-- `V1LLMSettings(BaseModel)` — router, planner, executor, aggregator fields (same structure as the current `LLMSettings`)
-- `V1Settings(BaseAgenticSettings)` — adds `llm_config: V1LLMSettings`, sets `model_config` with `toml_file=[V1_INNER_CONFIG, V1_DEV_CONFIG, V1_USER_CONFIG]`
-
-**`v1/default_config.toml`** is a copy of the root `default_config.toml` with `prompts_dir = "architectures/v1/prompts"`. This resolves the discrepancy where settings reported `src/sparq/prompts` but the active code used `architectures/v1/prompts`.
-
-**`v1/system.py`** is updated to import `V1Settings` instead of `AgenticSystemSettings` and restores `self.prompts_dir = self.settings.paths.prompts_dir`.
-
----
-
-## Bridge.4. `--architecture` CLI Arg
-
-**File**: `src/sparq/__main__.py`
-
-Add:
-```python
-parser.add_argument('-a', '--architecture', default='v1', choices=['v1'])
-```
-
-Import `Agentic_system` dynamically based on the arg:
-```python
-if args.architecture == 'v1':
-    from sparq.architectures.v1.system import Agentic_system
-```
-
-Remove the redundant standalone `AgenticSystemSettings(verbose=True)` instantiation. `Agentic_system` receives a `verbose` param and passes it to `V1Settings` internally, so settings are printed once from the right class.
-
----
-
-## Bridge.5. `setup.py` Multi-Architecture Config Copy
-
-**File**: `src/sparq/setup.py`
-
-Import `V1_INNER_CONFIG`, `V1_USER_CONFIG` from `sparq.architectures.v1.settings`. Replace the single `INNER_CONFIG_PATH → USER_CONFIG_PATH` copy with per-architecture copies:
-
-```python
-V1_USER_CONFIG.parent.mkdir(parents=True, exist_ok=True)
-if not V1_USER_CONFIG.exists():
-    shutil.copy2(V1_INNER_CONFIG, V1_USER_CONFIG)
-```
-
-When v2 is added, append its equivalent block here.
-
----
-
-## Bridge.6. Test Suite Update
-
-**File**: `tests/test_settings.py`
-
-Replace `from sparq.settings import AgenticSystemSettings` with `from sparq.architectures.v1.settings import V1Settings`. Rename `TestAgenticSystemSettings` → `TestV1Settings`. Update the `prompts_dir` assertion to verify the resolved path falls inside `architectures/v1/prompts`.
 
 ---
 
@@ -452,7 +233,7 @@ Estimates are for a solo developer. The team column assumes 2–3 people with no
 | v2.1 Data cleaning & validation loop | 3–4 weeks | 2–3 weeks | Nothing reusable; Cleaner + Validator nodes, feedback loop graph wiring, 4-artifact schema all new |
 | v2.2 DAG-based macro-decomposition | 4–6 weeks | 2–4 weeks | DAG schema + dependency-aware dispatcher are new; RAG sub-component alone is ~2–3 weeks |
 | v2.3 Speculative parallel execution | 5–7 weeks | 3–5 weeks | Most complex phase; REPL subsystem (~80%) reusable, but K-path fan-out, Docker infra, and self-healing loop are new |
-| v2.4 Editorial synthesis gatekeeper | 1–2 weeks | 1 week | Straightforward new node; aggregator structured output (improvement 10) is a prerequisite |
+| v2.4 Editorial synthesis gatekeeper | 1–2 weeks | 1 week | Straightforward new node; aggregator structured output (improvement 8) is a prerequisite |
 | Integration & end-to-end testing | 2–3 weeks | 1–2 weeks | Cross-phase wiring, failure mode handling, full pipeline tests |
 | **Total** | **15–22 weeks** | **9–15 weeks** | |
 
@@ -550,10 +331,10 @@ The current aggregator is a single LLM call with no validation of its output. Fo
 **Synthesis Supervisor** (`nodes/synthesis_supervisor.py`): a third independent LLM instance (separate from the Lead Supervisor and Trajectory Supervisor). It receives the original user query, the compiled Fact Packages from the execution phase, and the aggregator's draft report. It checks strictly for:
 
 - Narrative flow and internal logical consistency
-- Correct citation of figures by number (cross-checked against the figure manifest from improvement 7)
+- Correct citation of figures by number (cross-checked against the figure manifest from improvement 5)
 - Formatting alignment with scientific literature conventions
 - Factual consistency against the Fact Packages — it does not re-run code or re-audit arithmetic
 
 If the draft fails review, it is returned to the aggregator with specific editorial notes for rewrite. This loop runs up to a configurable maximum (default 3 iterations). After the ceiling is reached or the report passes, it is locked and delivered.
 
-**Relationship to existing aggregator**: the aggregator node is unchanged; the Synthesis Supervisor sits downstream of it as an additional conditional edge in the graph. The aggregator's structured output schema (improvement 10) is a prerequisite for this node to function reliably.
+**Relationship to existing aggregator**: the aggregator node is unchanged; the Synthesis Supervisor sits downstream of it as an additional conditional edge in the graph. The aggregator's structured output schema (improvement 8) is a prerequisite for this node to function reliably.
