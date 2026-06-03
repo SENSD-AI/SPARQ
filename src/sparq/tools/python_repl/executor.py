@@ -1,4 +1,5 @@
 from contextlib import redirect_stderr, redirect_stdout
+import importlib
 import io
 import json
 import multiprocessing as mp
@@ -214,7 +215,7 @@ def _target(statements: Optional[List[str]], expr: str, ns_path: str, result_pat
     # Re-import modules from previous executions
     for var_name, module_name in namespace.get("__modules__", {}).items():
         try:
-            namespace[var_name] = __import__(module_name)
+            namespace[var_name] = importlib.import_module(module_name)
         except ImportError:
             pass
 

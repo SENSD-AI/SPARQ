@@ -164,6 +164,21 @@ fib(10)
         result2 = execute_code(code2, ns_path=self.ns_path, timeout=5)
         self.assertTrue(result2.success)
 
+    def test_submodule_alias_persistence(self):
+        """Test that submodule aliases (import X.Y as z) are restored correctly across executions.
+
+        __import__("urllib.parse") returns the top-level urllib package, so urlparse.quote()
+        would fail with AttributeError. importlib.import_module("urllib.parse") returns the
+        correct submodule.
+        """
+        result1 = execute_code("import urllib.parse as urlparse", ns_path=self.ns_path, timeout=5)
+        self.assertTrue(result1.success)
+        self.assertEqual(result1.namespace.get("__modules__", {}).get("urlparse"), "urllib.parse")
+
+        result2 = execute_code("urlparse.quote('hello world')", ns_path=self.ns_path, timeout=5)
+        self.assertTrue(result2.success)
+        self.assertEqual(result2.output, "hello%20world")
+
     def test_saving_plots(self):
         """Test that plots can be generated and saved."""
         import os
