@@ -4,9 +4,9 @@
 
 | Change | Effort | Impact | Done |
 |--------|--------|--------|------|
-| Scope REPL namespace to run ID | Low | High (concurrency safety) | [ ] |
+| Scope REPL namespace to run ID | Low | High (concurrency safety) | [x] |
 | Step dependency + parallel execution | Medium | High (throughput) | [ ] |
-| State as Pydantic with reducers | Medium | Medium (robustness) | [ ] |
+| State as Pydantic with reducers | Medium | Medium (robustness) | [x] |
 | Executor → planner feedback loop | High | High (resilience) | [ ] |
 | Plot interpretation via agent-controlled tool | Medium | High (output quality) | [ ] |
 | Figure numbering tool for executor | Low | Medium (output quality) | [ ] |

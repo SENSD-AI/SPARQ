@@ -1,40 +1,62 @@
-This project uses AWS Bedrock models. In order to run SPARQ, you will need AWS API keys. 
+# AWS Bedrock Setup
 
-# Prerequisites
+SPARQ supports AWS Bedrock as an LLM provider. Set `provider = "aws_bedrock"` for any node in `config_v1.toml` and follow this guide.
 
-- Install AWS CLI (see https://docs.aws.amazon.com/bedrock/latest/userguide/getting-started-api.html)
+## Prerequisites
 
-# Important commands
+- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) installed
+- An AWS account with Bedrock model access enabled for your region
 
-For first time setup:
+## First-time setup
+
 ```bash
 aws configure sso
 ```
 
-Then to login after token expiration:
-```bash
-aws sso login --profile <aws_profile>
+Set the resulting profile name and region in your `.env`:
+
+```
+AWS_PROFILE=<your_profile>
+AWS_REGION=us-east-1
 ```
 
-To verify your AWS credentials and ensure that you are logged in correctly, you can run the following command:
+## Logging in (after token expiry)
+
 ```bash
-aws sts get-caller-identity --profile <aws_profile>
+aws sso login --profile <your_profile>
 ```
 
-# Bedrock
+## Verify credentials
 
-To list all available foundation models in AWS Bedrock, you can run the following command:
+```bash
+aws sts get-caller-identity --profile <your_profile>
+```
+
+## Listing available models
+
+List all foundation models with their inference types, modalities, and lifecycle status:
+
 ```bash
 aws bedrock list-foundation-models \
   --query 'modelSummaries[].{Model:modelId,Provider:providerName,Status:modelLifecycle.status,Input:join(`,`,inputModalities),Output:join(`,`,outputModalities),Inference:join(`,`,inferenceTypesSupported)}' \
   --output table \
-  --profile sensd
+  --profile <your_profile>
 ```
 
-To output the model list in JSON format, you can use:
+Save as JSON:
+
 ```bash
 aws bedrock list-foundation-models \
-  --query 'modelSummaries[].{Model:modelId,Provider:providerName,Status:modelLifecycle.status,Input:join(`,`,inputModalities),Output:join(`,`,outputModalities),Inference:join(`,`,inferenceTypesSupported)}' \  
+  --query 'modelSummaries[].{Model:modelId,Provider:providerName,Status:modelLifecycle.status,Input:join(`,`,inputModalities),Output:join(`,`,outputModalities),Inference:join(`,`,inferenceTypesSupported)}' \
   --output json \
-  --profile sensd > <output_path>.json
+  --profile <your_profile> > models.json
+```
+
+## Cross-region inference
+
+For cross-region inference profiles (recommended for higher availability), use model IDs prefixed with a region code, e.g.:
+
+```toml
+model = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+provider = "aws_bedrock"
 ```
