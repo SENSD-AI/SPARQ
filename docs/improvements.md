@@ -18,19 +18,39 @@
 
 ---
 
-## 1. Plan steps have no dependency information
+## 1. Step dependency + parallel execution
 
-**File**: `src/sparq/schemas/output_schemas.py`
+**Files**: `src/sparq/schemas/output_schemas.py`, `src/sparq/architectures/v1/nodes/executor.py`
 
-The `Step` schema has no way to express inter-step dependencies. As a result, all steps always run sequentially even when they are independent. Adding an optional field:
+**Design doc**: [`docs/parallel_execution.md`](parallel_execution.md)
+
+### Problem
+
+The `Step` schema has no dependency field, so all steps always run sequentially. A multi-step plan that loads three datasets and then analyses them cannot overlap the loads, even though they are independent. The shared single namespace pickle file (`ns_path = get_ns_path(run_id)`) would also race if two subprocesses wrote to it concurrently.
+
+### Design
+
+**Schema change** — add `depends_on` to `Step`:
 
 ```python
 class Step(BaseModel):
     ...
-    depends_on: List[int] = []  # indices of steps this step requires
+    depends_on: list[int] = []  # zero-based indices of steps that must complete first
 ```
 
-would allow the executor to topologically sort steps and run independent ones in parallel via `asyncio.gather`. This could cut wall-clock time significantly for multi-step plans.
+The planner populates this field. Steps with an empty `depends_on` (or whose dependencies are all resolved) form a batch that can run concurrently.
+
+**`sub_agent_id` per parallel step** — rather than sharing the run-level `ns_path`, each step in a parallel batch gets its own isolated namespace keyed by `f"{run_id}_step_{i}"`. The existing `get_ns_path`, `load_ns`, and `cleanup_ns` primitives in `namespace.py` handle this with no changes to their signatures.
+
+**Namespace lifecycle for a parallel batch:**
+1. **Seed** — copy the current base pickle into each `sub_ns_path` so parallel steps start with variables from completed sequential steps
+2. **Execute** — each step's agent and REPL tools are bound to its own `sub_ns_path`; subprocesses write only to their own file, no races
+3. **Merge** — after `asyncio.gather`, load each sub-namespace and `update()` the base; last-write-wins on key conflicts (acceptable because truly independent steps should not create the same variable name)
+4. **Cleanup** — `cleanup_ns(sub_agent_id)` removes each sub-pickle
+
+**Executor changes** — `executor_node` and `process_step` become `async`; `agent.invoke` → `agent.ainvoke`. The sequential `for` loop is replaced by a topological batch loop: resolve which steps have no unmet dependencies, dispatch them concurrently, mark complete, repeat.
+
+**`system.py` is unchanged** — `run_id` creation, graph wiring, and the event loop are unaffected. LangGraph is transparent to whether a node function is sync or async.
 
 ---
 
