@@ -14,6 +14,7 @@
 | Aggregator output isn't structured | Low | Medium (robustness) | [ ] |
 | LLM model validation at startup | Low | Medium (reliability) | [ ] |
 | Human-readable REPL tracebacks | Low | Medium (debuggability) | [x] |
+| Data science coding skill for executor | Medium | High (agent code quality) | [ ] |
 
 ---
 
