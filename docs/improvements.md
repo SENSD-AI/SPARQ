@@ -15,6 +15,7 @@
 | LLM model validation at startup | Low | Medium (reliability) | [ ] |
 | Human-readable REPL tracebacks | Low | Medium (debuggability) | [x] |
 | Data science coding skill for executor | Medium | High (agent code quality) | [ ] |
+| **Artifact organizer node** (supersedes #3, #4, #5) | Medium | High (output quality) | [ ] |
 
 ---
 
@@ -72,31 +73,33 @@ graph_init.add_conditional_edges("executor", executor_health_check, {
 
 ## 3. Executor cannot interpret generated plots
 
-**File**: `src/sparq/nodes/executor.py`, `src/sparq/tools/`
+**Files**: `src/sparq/tools/interpret_image_tool.py` (new), `src/sparq/architectures/v1/nodes/executor.py`, `src/sparq/settings.py`, `config/config.toml`
 
-The executor produces plots and documents but has no way to read them back. `files_generated` is just a list of filename strings — the agent cannot inspect the actual content of images, so plots are opaque to subsequent steps.
+The executor produces plots but has no way to read them back. `files_generated` is just a list of filename strings — plots are opaque to subsequent steps and to the aggregator.
 
-The executor already has `list_directory` from `FileManagementToolkit` (via `filesystemtools(selected_tools='all')`), so the agent can already discover what files exist in `output_dir`. What's missing is a single additional tool:
-
-**An `interpret_plot(file_path)` tool** — loads a saved image, encodes it, and passes it to a multimodal LLM, returning a text description. The agent calls this selectively on whichever files it judges relevant to the current step.
+**Design:** a `make_interpret_image_tool(vision_llm)` factory returns a `@tool` the executor can call immediately after saving any plot. The interpretation is returned as a tool result, visible in the executor's context for subsequent steps and captured in `ExecutorOutput` for the artifact organizer to fold into `artifact_map.json`.
 
 ```python
-@tool
-def interpret_plot(file_path: str) -> str:
-    """Interpret a plot image and return a text description of its findings."""
-    path = Path(file_path)
-    b64 = base64.b64encode(path.read_bytes()).decode()
-    content = [
-        {"type": "text", "text": "Describe the key findings in this plot."},
-        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}}
-    ]
-    response = vision_llm.invoke([HumanMessage(content=content)])
-    return response.content
+def make_interpret_image_tool(vision_llm):
+    @tool
+    def interpret_image(file_path: str) -> str:
+        """Load a saved plot and return a description of its key findings."""
+        path = Path(file_path)
+        mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg"}.get(
+            path.suffix.lower().lstrip("."), "image/png"
+        )
+        b64 = base64.b64encode(path.read_bytes()).decode()
+        response = vision_llm.invoke([HumanMessage(content=[
+            {"type": "text", "text": "Describe the key findings in this figure. Be concise and scientific."},
+            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+        ])])
+        return response.content
+    return interpret_image
 ```
 
-**Why tool-based rather than automatic post-processing:** Automatically interpreting every new plot after each step wastes tokens on diagnostic outputs the agent doesn't need. Giving the agent the tool lets it decide which files are worth interpreting for the current task.
+The executor prompt is updated to instruct: *"After saving any plot with `plt.savefig`, call `interpret_image` on the saved path and include the interpretation in your findings."*
 
-**Constraint:** The LLM backing `interpret_plot` must be multimodal. This should be a separate `vision_llm` config entry in `LLMSettings` rather than reusing the executor LLM, so switching the executor to a text-only model doesn't silently break plot interpretation.
+**Constraint:** `vision_llm` must be a multimodal model. Add a separate `vision_llm` config entry in `LLMSettings` — do not reuse the executor LLM, since that may be text-only. `vision_llm` is also used by the artifact organizer node (improvement #12).
 
 ---
 
@@ -271,6 +274,61 @@ TypeError: 'builtin_function_or_method' object is not iterable
 ```
 
 This lets the agent immediately identify the offending line without re-reading prior context, reducing unnecessary retry turns.
+
+---
+
+## 12. Artifact organizer node
+
+**Files**: `src/sparq/architectures/v1/nodes/artifact_organizer.py` (new), `src/sparq/schemas/state.py`, `src/sparq/architectures/v1/system.py`
+
+**Design doc**: [`docs/artifact_organizer.md`](artifact_organizer.md)
+
+**Supersedes improvements #4 and #5.** Improvement #3 (plot interpretation) is resolved separately as an executor tool (`interpret_image`) — the artifact organizer receives interpretations pre-computed in `ExecutorOutput` and folds them into the map.
+
+### Problem
+
+After the executor finishes, the output directory is an unorganized mix of CSV files, images, and text reports with no metadata. The aggregator receives raw `ExecutorOutput` dicts and has to infer what was produced without being able to read or reference any of it. Images are not numbered, not organized, and not referenced in a consistent way.
+
+### Design
+
+A new `artifact_organizer_node` is inserted between the executor and aggregator. Internally it runs one subagent and performs file organization:
+
+- **Inspector subagent** (Python REPL + file read tools): scans data files (CSV, parquet) and text reports; distills each executor step's output to a one-line summary
+- **File organization**: assigns figure numbers, moves images into `figures/figure_N/` folders, writes `interpretation.md` per figure from the executor's pre-computed interpretations, deletes original image files from the root output directory
+
+### Artifacts produced
+
+For each image found in the output directory:
+```
+run_dir/
+  figures/
+    figure_1/
+      figure_1.png          ← moved from root output dir
+      interpretation.md     ← written by image interpreter subagent
+    figure_2/
+      figure_2.png
+      interpretation.md
+```
+Original image files in the root output directory are deleted after the organized folders are created.
+
+### Output to state
+
+A JSON file (`artifact_map.json`) is written to `run_dir` and a matching `artifact_map` field is added to `State`. Structure:
+```json
+{
+  "steps": [
+    {
+      "step": 1,
+      "description": "Load dataset and compute incidence rates by region",
+      "summary": "Loaded 12,450 records; computed annual incidence rates across 5 regions",
+      "figures": ["figure_1"],
+      "data_files": ["incidence_by_region.csv"]
+    }
+  ]
+}
+```
+
+The aggregator receives this map instead of (or alongside) raw `executor_results`, giving it a compact, pre-interpreted briefing it can reference directly when writing the final report.
 
 ---
 

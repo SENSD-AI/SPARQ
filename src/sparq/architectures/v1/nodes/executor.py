@@ -32,7 +32,7 @@ def _build_context(results: dict, ns_path: str) -> str:
     """
     lines = []
 
-    if results:
+    if results != {}:
         lines.append("Previously completed steps:")
         for step, data in results.items():
             lines.append(f"\n{step}")
