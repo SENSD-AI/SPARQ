@@ -2,14 +2,13 @@ from sparq.schemas.state import State
 from sparq.schemas.output_schemas import Plan
 from sparq.schemas.data_context import DataContext, load_data_context
 from sparq.settings import (
-    BaseAgenticSettings,
     ENVSettings,
     DATA_MANIFEST_PATH,
     DATA_SUMMARIES_SHORT_PATH,
     LLMSetting,
-)
+) 
+from sparq.architectures.v1.settings import V1Settings
 from sparq.utils.get_llm import get_llm
-
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 
@@ -41,18 +40,15 @@ def planner_node(state: State, llm_config: LLMSetting, sys_prompt: str):
     return {'plan': plan, 'data_context': data_context}
 
 def test_planner():
-    # from sparq.settings_old import Settings
     print("Running test code for planner.py")
     
-    # s = Settings()
-    # llm_config = s.LLM_CONFIG
-    # llm = helpers.get_llm(model=llm_config['planner']['model'], provider=llm_config['planner']['provider'])
-
+    v1_settings = V1Settings()
     _ = ENVSettings()  # Load environment variables
-    llm_config = BaseAgenticSettings().llm_config
+    llm_config = v1_settings.llm_config
     system_prompt = "Create a plan to answer the user query"
     user_query = "What is the relation between time of day and traffic in Kuala Lumpur, Malaysia?"
-    input = {"query": user_query}
+    input: State = State(query=user_query)
+    
 
     response = planner_node(state=input, llm_config=llm_config.planner, sys_prompt=system_prompt)
     response['plan'].pretty_print()

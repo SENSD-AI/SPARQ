@@ -126,16 +126,16 @@ def test_executor(plan: Plan):
 
     from sparq.settings import (
         ENVSettings,
-        BaseAgenticSettings,
         PathSettings,
         DATA_MANIFEST_PATH,
         DATA_SUMMARIES_SHORT_PATH,
     )
+    from sparq.architectures.v1.settings import V1Settings
     from sparq.schemas.data_context import load_data_context
 
     # Load environment and system settings
     env_settings = ENVSettings()
-    system_settings = BaseAgenticSettings()
+    system_settings = V1Settings()
 
     # Get system prompt
     prompt = helpers.load_text(system_settings.paths.prompts_dir / "executor_message.txt")
@@ -160,16 +160,20 @@ if __name__ == "__main__":
     sample_plan = Plan(
         steps=[
             Step(
+                id=1,
                 step_description="Get the pulsenet dataset and load it into a dataframe.",
                 datasets=[],
                 rationale="The pulsenet dataset contains information about various pathogens, including their serotypes and sources of isolation. Loading it into a dataframe will allow us to analyze the data and find correlations.",
-                task_type=["data_mining"]
+                task_type=["data_mining"],
+                dependencies=None
             ),
             Step(
+                id=2,
                 step_description="Find correlations between serotype and source of isolation in the dataset.",
                 datasets=[],
                 rationale="Understanding correlations between serotype and source of isolation can provide insights into the epidemiology of the pathogens in the dataset.",
-                task_type=["summary_statistics", "visualization"]
+                task_type=["summary_statistics", "visualization"],
+                dependencies=[1]
             ),
         ],
         wants="Clarification on which serotypes or sources are of most interest.",
