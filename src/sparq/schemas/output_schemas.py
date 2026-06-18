@@ -20,7 +20,7 @@ class Plan(BaseModel):
 
     def pretty_print(self):
         for field_name, value in self.model_dump().items():
-            print(f"{field_name}: {value}")
+            print(f"{field_name}:\n{value}")
         
 
 class Router(BaseModel):
@@ -31,6 +31,7 @@ class Router(BaseModel):
 
 class ExecutorOutput(BaseModel):
     """Output of the executor node"""
+    id: int = Field(..., description="ID of the step (step 1, step 2, ...)")
     step: str = Field(..., description="What you were tasked to do by the user")
     execution_results: str = Field("", description="Summary of results of running your code.")
     files_generated: List[str] = Field(default_factory=list, description="Files generated during execution")
