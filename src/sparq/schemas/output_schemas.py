@@ -10,7 +10,7 @@ class Step(BaseModel):
     datasets: List[str] = Field(..., description="List of dataset names used")
     rationale: str = Field(..., description="Why this step is necessary")
     task_type: List[str] = Field(..., description="The type of computation required e.g. data_retrieval, correlation, visualization")
-    dependencies: List[int] | None  = Field(None, description="The list of steps this step depends on. If there are no dependencies, this should be None.") 
+    dependencies: List[int] = Field([], description="The list of steps this step depends on. If there are no dependencies, this should be empty.") 
 
 class Plan(BaseModel):
     """Information about the the steps in a plan to answer the user query"""

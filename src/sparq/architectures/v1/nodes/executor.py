@@ -1,7 +1,8 @@
 from pathlib import Path
+from typing import List
 
-from sparq.schemas.state import State
-from sparq.schemas.output_schemas import Plan, ExecutorOutput
+from sparq.schemas.state import State, WorkerState
+from sparq.schemas.output_schemas import Plan, Step, ExecutorOutput
 from sparq.settings import LLMSetting
 from sparq.utils import helpers
 from sparq.utils.get_llm import get_llm
@@ -10,6 +11,8 @@ from sparq.tools.python_repl.namespace import get_ns_path, load_ns
 from sparq.tools.filesystemtools import filesystemtools
 from sparq.tools.data_discovery_tools import make_load_dataset_tool, get_sheet_names, find_csv_excel_files, get_cached_dataset_path
 
+from langgraph.graph import END
+from langgraph.types import Send
 from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 from langchain_core.messages import SystemMessage
 from langgraph.prebuilt import create_react_agent
@@ -50,7 +53,54 @@ def _build_context(results: dict, ns_path: str) -> str:
     return "\n".join(lines)
 
 
-def executor_node(state: State, config: RunnableConfig, llm_config: LLMSetting, prompt: str, output_dir: Path):
+def executor_node(state: State):
+    """
+    Execute the plan.
+
+    Args:
+        state: LangGraph state containing the plan and data context.
+        config: LangGraph RunnableConfig; must contain config["configurable"]["run_id"] to scope the REPL namespace.
+        llm_config: LLM model and provider settings for the executor.
+        prompt: System prompt template string.
+        output_dir: Directory where executor outputs (plots, files) are written.
+    """
+    print("Executing plan to answer your query")
+    plan = state.plan
+    completed = set(state.completed_steps)
+
+    while len(completed) < len(plan.steps):
+        ready_steps = []
+
+        for step in plan.steps:
+            if step.id in completed:
+                continue
+
+            # A step is ready to be executed if it has no dependencies
+            deps = step.dependencies
+
+            # Check if dependencies are completed
+            if all(dep in completed for dep in deps):
+                ready_steps.append(step)
+
+        if not ready_steps:
+            raise ValueError("Deadlock detected in executor node: Unresolved dependencies remain.")
+
+        print(f"[Executor Node] Spawning {len(ready_steps)} parallel worker agents...")
+
+        # TODO: dispatch ready_steps to worker agents and merge results back into completed/results
+
+
+async def execute_single_step_worker(step: Step, llm_config: LLMSetting, prompt: str, output_dir: Path):
+    """An isolated worker instance spawned for an individual plan step"""
+    print(f"[Worker Agent] starting step {step.id}: {step.step_description}")
+
+    # TODO: Complete the function
+    pass
+
+
+
+
+async def execute_step(state: State, config: RunnableConfig, llm_config: LLMSetting, prompt: str, output_dir: Path):
     """
     Execute the plan.
 
