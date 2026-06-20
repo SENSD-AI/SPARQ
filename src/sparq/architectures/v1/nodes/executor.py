@@ -1,13 +1,14 @@
 from pathlib import Path
-from typing import List
+import asyncio
+from typing import List, Tuple
 
 from sparq.schemas.state import State, WorkerState
-from sparq.schemas.output_schemas import Plan, Step, ExecutorOutput
+from sparq.schemas.output_schemas import Plan, Step, StepResult
 from sparq.settings import LLMSetting
 from sparq.utils import helpers
 from sparq.utils.get_llm import get_llm
 from sparq.tools.python_repl.python_repl_tool import make_python_repl_tool
-from sparq.tools.python_repl.namespace import get_ns_path, load_ns
+from sparq.tools.python_repl.namespace import get_ns_path, load_ns, save_ns
 from sparq.tools.filesystemtools import filesystemtools
 from sparq.tools.data_discovery_tools import make_load_dataset_tool, get_sheet_names, find_csv_excel_files, get_cached_dataset_path
 
@@ -18,65 +19,98 @@ from langchain_core.messages import SystemMessage
 from langgraph.prebuilt import create_react_agent
 from langchain_core.runnables.config import RunnableConfig
 
+MAX_NAMESPACE_VARS_WARNING = 30
 
-def _build_context(results: dict, ns_path: str) -> str:
+
+def _build_context(dependency_results: List[StepResult], ns_context: str) -> str:
     """
-    Build a context string for the current step based on previous results and the current namespace.
+    Build a context string for a worker's current step based on its dependencies' results
+    and the variables already available in its namespace.
 
     Args:
-        results: Previously completed step results.
-        ns_path: Path to the run-scoped namespace pickle file used to enumerate live variables.
-
-    What is added to the context?
-    - Previously completed steps and their results
-    - Notes or miscellaneous information from previous steps
-    - Variables currently in the namespace and their types
-
+        dependency_results: Results of the steps this step depends on.
+        ns_context: Summary of variables already in the worker's namespace (from merge_namespaces_of_previous_deps).
     """
-    lines = []
+    parts = []
 
-    if results != {}:
-        lines.append("Previously completed steps:")
-        for step, data in results.items():
-            lines.append(f"\n{step}")
-            lines.append(f"  Results: {data['execution_results']}")
-            if data['misc']:
-                lines.append(f"  Notes: {data['misc']}")
+    if dependency_results:
+        lines = ["Results from steps this step depends on:"]
+        for dep in dependency_results:
+            lines.append(f"\nStep {dep.id}: {dep.step}")
+            lines.append(f"  Results: {dep.execution_results}")
+            if dep.misc:
+                lines.append(f"  Notes: {dep.misc}")
+        parts.append("\n".join(lines))
 
-    ns = load_ns(ns_path)
-    ns_vars = {k: type(v).__name__ for k, v in ns.items() if not k.startswith("__")}
-    if ns_vars:
-        lines.append("\nVariables currently in namespace:")
-        for var, typename in ns_vars.items():
-            lines.append(f"  {var}: {typename}")
+    if ns_context:
+        parts.append(ns_context)
 
-    return "\n".join(lines)
+    return "\n\n".join(parts)
+
+def merge_namespaces_of_previous_deps(step: Step, run_id: str) -> Tuple[int, str]:
+    """Merge the namespaces of a step's completed dependencies into its own namespace.
+
+    Returns (number of variables available, summary of those variables as "name: type" lines)
+    for use in the worker's prompt, and so callers can flag context bloat if there are too many.
+    """
+    dependencies: List[int] = step.dependencies
+    merged_namespace: dict = {}
+    merged_modules: dict = {}
+
+    for dep in dependencies:
+        step_run_id: str = f"{run_id}_step_{dep}"
+        namespace = load_ns(get_ns_path(step_run_id))
+        merged_modules.update(namespace.pop("__modules__", {}))
+        merged_namespace.update(namespace)
+
+    if merged_modules:
+        merged_namespace["__modules__"] = merged_modules
+
+    if merged_namespace:
+        save_ns(get_ns_path(f"{run_id}_step_{step.id}"), merged_namespace)
+
+    ns_vars = {k: type(v).__name__ for k, v in merged_namespace.items() if not k.startswith("__")}
+    num_vars = len(ns_vars)
+    if num_vars == 0:
+        return 0, ""
+
+    lines = [f"Variables already available in your namespace ({num_vars} from completed dependency steps):"]
+    for var, typename in ns_vars.items():
+        lines.append(f"  {var}: {typename}")
+    return num_vars, "\n".join(lines)
+
+def get_results_of_dependent_steps(step: Step, state: State) -> List[StepResult]:
+    return [step_result for step_result in state.results if step_result.id in step.dependencies]
 
 
-def executor_node(state: State):
+async def executor_node(state: State, config: RunnableConfig, llm_config: LLMSetting, worker_prompt: str, output_dir: Path):
     """
     Execute the plan.
 
     Args:
         state: LangGraph state containing the plan and data context.
         config: LangGraph RunnableConfig; must contain config["configurable"]["run_id"] to scope the REPL namespace.
-        llm_config: LLM model and provider settings for the executor.
-        prompt: System prompt template string.
+        llm_config: LLM model and provider settings for worker agents.
+        worker_prompt: System prompt for a worker agent.
         output_dir: Directory where executor outputs (plots, files) are written.
     """
-    print("Executing plan to answer your query")
+    print("[SPARQ] Executing plan to answer your query...")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    run_id = config.get('configurable', {}).get('run_id', 'default')
+
     plan = state.plan
-    completed = set(state.completed_steps)
+    completed = set(state.completed_plan_steps)
+    all_results: List[StepResult] = list(state.results)
 
     while len(completed) < len(plan.steps):
-        ready_steps = []
+        ready_steps: List[Step] = []
 
         for step in plan.steps:
             if step.id in completed:
                 continue
 
             # A step is ready to be executed if it has no dependencies
-            deps = step.dependencies
+            deps: List[int] = step.dependencies
 
             # Check if dependencies are completed
             if all(dep in completed for dep in deps):
@@ -87,45 +121,51 @@ def executor_node(state: State):
 
         print(f"[Executor Node] Spawning {len(ready_steps)} parallel worker agents...")
 
-        # TODO: dispatch ready_steps to worker agents and merge results back into completed/results
+        tasks = []
+        for step in ready_steps:
+            dependency_results: List[StepResult] = get_results_of_dependent_steps(step, state)
+            tasks.append(
+                execute_single_step_worker(
+                    step=step,
+                    run_id=run_id,
+                    llm_config=llm_config,
+                    prompt=worker_prompt,
+                    dependency_results=dependency_results,
+                    state=state,
+                    output_dir=output_dir
+                )
+            )
+
+        batch_results: List[StepResult] = await asyncio.gather(*tasks)
+
+        for result in batch_results:
+            completed.add(result.id)
+            all_results.append(result)
+
+        # Keep `state` in sync so the next batch's get_results_of_dependent_steps sees this round's results.
+        state = state.model_copy(update={"completed_plan_steps": list(completed), "results": all_results})
+
+    return {"completed_plan_steps": list(completed), "results": all_results}
 
 
-async def execute_single_step_worker(step: Step, llm_config: LLMSetting, prompt: str, output_dir: Path):
+async def execute_single_step_worker(step: Step, run_id: str, llm_config: LLMSetting, prompt: str, dependency_results: List[StepResult], state: State, output_dir: Path) -> StepResult:
     """An isolated worker instance spawned for an individual plan step"""
     print(f"[Worker Agent] starting step {step.id}: {step.step_description}")
 
-    # TODO: Complete the function
-    pass
+    # Get namespace for worker, seeded with the merged namespaces of its dependencies
+    step_ns_id = f"{run_id}_step_{step.id}"
+    worker_ns: str = get_ns_path(step_ns_id)
+    num_vars, ns_context = merge_namespaces_of_previous_deps(step, run_id)
+    if num_vars > MAX_NAMESPACE_VARS_WARNING:
+        print(f"[Worker Agent] step {step.id}: {num_vars} variables inherited from dependencies, exceeds {MAX_NAMESPACE_VARS_WARNING} — risk of context bloat.")
 
-
-
-
-async def execute_step(state: State, config: RunnableConfig, llm_config: LLMSetting, prompt: str, output_dir: Path):
-    """
-    Execute the plan.
-
-    Args:
-        state: LangGraph state containing the plan and data context.
-        config: LangGraph RunnableConfig; must contain config["configurable"]["run_id"] to scope the REPL namespace.
-        llm_config: LLM model and provider settings for the executor.
-        prompt: System prompt template string.
-        output_dir: Directory where executor outputs (plots, files) are written.
-    """
-    print("Executing plan to answer your query.")
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    run_id = config.get("configurable", {}).get("run_id", "default")
-    ns_path = get_ns_path(run_id)
-
-    plan: Plan = state.plan
-    llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
-
+    # Create Deep Agent
+    llm_object = get_llm(llm_config.model_name, llm_config.provider)
     data_context = state.data_context
-
     _tools = [
-        make_load_dataset_tool(ns_path),
+        make_load_dataset_tool(worker_ns),
         get_sheet_names,
-        make_python_repl_tool(ns_path),
+        make_python_repl_tool(worker_ns),
         find_csv_excel_files,
         get_cached_dataset_path,
     ] + (filesystemtools(working_dir=str(output_dir), selected_tools='all'))
@@ -137,39 +177,27 @@ async def execute_step(state: State, config: RunnableConfig, llm_config: LLMSett
     system_prompt_str: str = system_prompt_template.invoke(input={}).to_string()
     system_prompt: SystemMessage = SystemMessage(content=system_prompt_str)
 
-    # create the ReAct agent
     agent = create_react_agent(
-        model=llm,
+        model=llm_object,
         tools=_tools,
         prompt=system_prompt,
-        response_format=(prompt, ExecutorOutput),
+        response_format=(prompt, StepResult),
     )
 
-    def process_step(results: dict, step_description, step_index):
-        context = _build_context(results, ns_path)
-        user_content = f"{context}\n\nYour current task:\n{step_description}" if context else step_description
-        agent_input = {"messages": [{"role": "user", "content": user_content}]}
-        response = agent.invoke(agent_input, config={"recursion_limit": llm_config.recursion_limit})
-        structured_response = response["structured_response"]
+    context = _build_context(dependency_results, ns_context)
+    user_content = f"{context}\n\nYour current task:\n{step.step_description}" if context else step.step_description
+    agent_input = {"messages": [{"role": "user", "content": user_content}]}
 
-        outer_dict_key = f"Step {step_index}: {step_description}"
-        results[outer_dict_key] = {
-            'execution_results': structured_response.execution_results,
-            'files_generated': structured_response.files_generated,
-            'misc': structured_response.misc,
-        }
+    try:
+        response = await agent.ainvoke(agent_input, config={"recursion_limit": llm_config.recursion_limit})
+        result: StepResult = response["structured_response"]
+    except Exception as e:
+        result = StepResult(id=step.id, step=step.step_description, execution_results="", misc=f"Step failed: {e}")
 
-        return results
+    result.id = step.id
+    result.step = step.step_description
+    return result
 
-    results = {}
-    for i, step in enumerate(plan.steps):
-        try:
-            results = process_step(results, step.step_description, i+1)
-        except Exception as e:
-            results[f"Step {i+1}: {step.step_description}"] = {"error": str(e)}
-        
-
-    return {'executor_results': results}
 
 def test_executor(plan: Plan):
     print(f"Testing executor node with sample plan: \n {plan.pretty_print()}")
