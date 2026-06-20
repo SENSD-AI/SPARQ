@@ -29,8 +29,8 @@ class Router(BaseModel):
     answer: str | None = Field(None, description="The answer to the query if it can be answered directly")
     
 
-class ExecutorOutput(BaseModel):
-    """Output of the executor node"""
+class StepResult(BaseModel):
+    """The result of executing a single step"""
     id: int = Field(..., description="ID of the step (step 1, step 2, ...)")
     step: str = Field(..., description="What you were tasked to do by the user")
     execution_results: str = Field("", description="Summary of results of running your code.")
