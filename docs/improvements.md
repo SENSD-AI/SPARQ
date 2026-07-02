@@ -383,24 +383,31 @@ exceeds maximum allowed size (300MB). Simplify your JSON schema to reduce gramma
 
 Reproduced 2026-07-02 via `uv run python -m sparq.architectures.v1.nodes.executor` (the fixed `test_executor`/`__main__` block — see item covering the parallel-execution todo list). Confirmed via a LangSmith trace and a direct patch of `ChatBedrockConverse`'s underlying `client.converse` call.
 
-### Root cause (partial)
+### Root cause (confirmed)
 
-`execute_single_step_worker` binds 16 tools to the worker agent: 7 `deepagents` built-ins (`write_todos`, `ls`, `read_file`, `write_file`, `edit_file`, `glob`, `grep`, `task`) plus 9 of ours (`load_dataset`, `get_sheet_names`, `python_repl_tool`, `find_csv_excel_files`, `get_cached_dataset_path`, and the 4 `filesystemtools`). `response_format=StepResult` forces the model into a required tool-choice, so Bedrock's Converse API must compile a single constrained-decoding grammar covering all 16 tool schemas plus the structured-output extraction schema at once.
+At the time this was reproduced, `execute_single_step_worker` built its agent with `deepagents.create_deep_agent`, which binds 7 built-in tools (`write_todos`, `ls`, `read_file`, `write_file`, `edit_file`, `glob`, `grep`, `task`) in addition to the 9 tools this codebase defines (`load_dataset`, `get_sheet_names`, `python_repl_tool`, `find_csv_excel_files`, `get_cached_dataset_path`, and the 4 `filesystemtools`) — 16 tools total bound to a single call. `response_format=StepResult` forces the model into a required tool-choice, so Bedrock's Converse API must compile a single constrained-decoding grammar covering all 16 tool schemas plus the structured-output extraction schema at once.
 
-Measured total raw JSON schema text for all 16 tools: ~5KB — far too small to explain a 484.8MB compiled grammar by size alone. This points to combinatorial blowup during grammar compilation, likely driven by `anyOf`/nullable fields (e.g. `Optional[str] = None` params such as `python_repl_tool`'s `code` argument) multiplying across tools when a single automaton must represent "any of 16 tools, each with its own optional-field branches," rather than the schema text size itself.
+Measured total raw JSON schema text for all 16 tools: ~5KB — far too small to explain a 484.8MB compiled grammar by size alone. The blowup is combinatorial, not size-driven: `anyOf`/nullable fields (e.g. `Optional[str] = None` params such as `python_repl_tool`'s `code` argument) multiply across tools when a single automaton must represent "any of 16 tools, each with its own optional-field branches."
 
 Two unrelated but adjacent tool-schema bugs were found and fixed while investigating (both only surfaced under Bedrock's stricter schema validation — Gemini, the repo's default provider, tolerates them):
 - `get_sheet_names(file_path)` had no type annotation, producing an empty `{}` JSON schema Bedrock rejected outright.
 - `find_csv_excel_files(root_dir: Path | str)` produced a `"format": "path"` JSON schema field Bedrock doesn't support; narrowed to `root_dir: str` (the function already coerced to `Path` internally).
 
-Fixing those two did not resolve the grammar-size error — it is a separate, harder problem.
+Fixing those two did not resolve the grammar-size error on its own.
+
+**This is a known, documented limitation of Claude's structured-output/tool-use grammar compiler — not specific to Bedrock, `deepagents`, or this codebase.** See [anthropics/anthropic-sdk-python#1185](https://github.com/anthropics/anthropic-sdk-python/issues/1185): "Structured outputs: 'compiled grammar is too large' error needs better documentation and higher limits for complex schemas." Per Anthropic's own docs, the API compiles the JSON schema of every bound tool (plus any forced-choice structured-output schema) into a single constrained-decoding grammar, and "schema complexity features like optional parameters, union types, nested objects, and number of tools interact in ways that can make the compiled grammar disproportionately large" — confirming the combinatorial (not size-driven) explosion observed here. As of this writing there is no documented workaround besides reducing schema complexity (fewer tools, fewer `Optional`/union fields) — no raised-limit flag or opt-out exists.
+
+### Resolution
+
+Swapping `create_deep_agent` for `langchain.agents.create_agent` (same call shape: `model`, `tools`, `system_prompt`, `response_format=StepResult`) resolved the grammar-size error. `create_agent` does not add `deepagents`' 7 built-in tools, so the worker binds only the 9 tools this codebase defines — enough to bring Bedrock's compiled grammar back under the 300MB limit. Confirmed working end-to-end via `test_executor` against `aws_bedrock` / `us.anthropic.claude-sonnet-4-5-20250929-v1:0` on 2026-07-02 (real analysis output — plots, CSVs, a report — written to the run's output directory).
+
+**Trade-off**: this drops `deepagents`' subagent delegation (`task`) and todo-list tracking (`write_todos`), which were the reason `create_deep_agent` was adopted in the first place. `executor.py` currently imports both `create_agent` (used) and `create_deep_agent` (unused, left in place intentionally as a marker to revisit).
 
 ### Not yet done
 
-- Confirm whether removing `Optional[...] = None` fields (replacing with required params or sentinel defaults) reduces compiled grammar size meaningfully.
-- Confirm whether reducing bound tool count (e.g. trimming `filesystemtools` to only what a given step needs) is the more tractable fix versus reworking every tool signature.
-- Consider whether `response_format`'s forced tool-choice is the primary multiplier — if so, whether `deepagents`/`langchain.agents.create_agent` exposes a way to use `tool_choice="auto"` for structured output on Bedrock specifically.
-- No workaround implemented yet; `config_v1.toml`'s local dev config currently cannot run the executor end-to-end against Bedrock. Testing has continued against `google_genai` (the repo's default provider), which does not hit this wall.
+- Determine whether `deepagents`' subagent delegation / todo tracking can be recovered on Bedrock without hitting the grammar limit — e.g. by trimming which built-in tools `create_deep_agent` binds (if configurable), or by reducing the custom tool set bound alongside it so the combined total stays low enough.
+- Confirm whether `response_format`'s forced tool-choice is the primary multiplier — if so, whether there's a way to request `tool_choice="auto"` for structured output on Bedrock specifically, which might allow more tools to coexist.
+- Consider whether this limit reappears as more custom tools are added to `execute_single_step_worker` over time, even with plain `create_agent`, since the underlying Anthropic grammar-compiler limit is not itself fixed (see anthropics/anthropic-sdk-python#1185 above) — only worked around here by keeping the tool count low.
 
 ---
 

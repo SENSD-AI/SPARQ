@@ -2,7 +2,7 @@ from pathlib import Path
 import asyncio
 from typing import List, Tuple
 
-from sparq.schemas.state import State, WorkerState
+from sparq.schemas.state import State
 from sparq.schemas.output_schemas import Plan, Step, StepResult
 from sparq.settings import LLMSetting
 from sparq.utils import helpers

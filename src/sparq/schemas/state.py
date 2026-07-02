@@ -17,11 +17,3 @@ class State(BaseModel):
 
     # data-specific
     data_context: DataContext | None = None
-
-    # TODO: Delete this when parallel execution is implemented
-    # executor_results: dict = {}
-
-
-class WorkerState(BaseModel):
-    step: Step = Field(..., description="The current step being processed.")
-    context: str | None = None
