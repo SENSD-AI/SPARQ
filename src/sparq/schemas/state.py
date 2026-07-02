@@ -22,8 +22,6 @@ class State(BaseModel):
     # executor_results: dict = {}
 
 
-
-
 class WorkerState(BaseModel):
     step: Step = Field(..., description="The current step being processed.")
     context: str | None = None

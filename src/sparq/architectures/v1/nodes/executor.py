@@ -99,8 +99,8 @@ async def executor_node(state: State, config: RunnableConfig, llm_config: LLMSet
     run_id = config.get('configurable', {}).get('run_id', 'default')
 
     plan = state.plan
-    completed = set(state.completed_plan_steps)
-    all_results: List[StepResult] = list(state.results)
+    completed = set() # Why a set instead of a list? -> Downstream checking for completed steps is faster on a set than a list
+    all_results: List[StepResult] = []
 
     while len(completed) < len(plan.steps):
         ready_steps: List[Step] = []
@@ -109,11 +109,12 @@ async def executor_node(state: State, config: RunnableConfig, llm_config: LLMSet
             if step.id in completed:
                 continue
 
-            # A step is ready to be executed if it has no dependencies
-            deps: List[int] = step.dependencies
-
-            # Check if dependencies are completed
-            if all(dep in completed for dep in deps):
+            # Check if step has deps. If yes, then check if they have been completed. If no, then append step to ready_steps
+            if step.dependencies:
+                # Check if dependencies are completed
+                if all(dep in completed for dep in step.dependencies):
+                    ready_steps.append(step)
+            else:
                 ready_steps.append(step)
 
         if not ready_steps:
