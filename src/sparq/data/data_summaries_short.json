@@ -1,0 +1,89 @@
+{
+  "census_population": {
+    "desc": "US Census county population estimates 2020-2023. No FIPS column.",
+    "rows": 3151,
+    "years": "2020-2023",
+    "geo": "county",
+    "load": "pd.read_excel('2020-2023.xlsx', sheet_name='CO-EST2023-POP', header=3)",
+    "key_cols": [
+      "Unnamed: 0",
+      "Unnamed: 1",
+      "2020",
+      "2021",
+      "2022",
+      "2023"
+    ],
+    "join_on": "Unnamed: 0 (name string, strip leading '.' for counties)",
+    "quirks": "No FIPS. Strip leading '.' from county names."
+  },
+  "naco": {
+    "desc": "NACo county economics \u2014 links.txt only, no local data.",
+    "rows": 0,
+    "quirks": "CRITICAL: No tabular data locally. Skip."
+  },
+  "nors": {
+    "desc": "CDC NORS Salmonella outbreaks 1998-2021. 39 relational sheets, joined via CDCID.",
+    "rows": 3950,
+    "years": "1998-2021",
+    "geo": "state/county",
+    "load": "pd.read_excel('TROU_20230317_For Release2.xlsx', sheet_name='NORSMain')",
+    "key_cols": [
+      "CDCID",
+      "yearfirstill",
+      "monthfirstill",
+      "ExposureState",
+      "ExposureCounty"
+    ],
+    "join_on": "CDCID (links all sheets), ExposureState, yearfirstill",
+    "quirks": "Serotype in GenEtiology sheet (join CDCID). ExposureCounty uses '***' for suppressed."
+  },
+  "pulsenet": {
+    "desc": "CDC PulseNet Salmonella isolates 1996-2023. 582,022 records in 6 xlsx files.",
+    "rows": 582022,
+    "years": "1996-2023",
+    "geo": "county/state",
+    "load": "pd.concat([pd.read_excel(f) for f in Export_*.xlsx])",
+    "key_cols": [
+      "Serotype",
+      "SourceState",
+      "SourceCounty",
+      "IsolatDate",
+      "Outbreak",
+      "LabID"
+    ],
+    "join_on": "SourceState, SourceCounty, IsolatDate",
+    "quirks": "Normalize SourceType/PatientSex with .str.upper().str.strip(). IsolatDate is datetime (dtype=object). Concat all 6 files."
+  },
+  "map_the_meal_gap": {
+    "desc": "Feeding America county food insecurity rates 2009-2020. 12 annual xlsx files.",
+    "rows": "~3143 per year (varies; 2022 file has 6285 rows covering 2019+2020 combined)",
+    "years": "2009-2020",
+    "geo": "county",
+    "load": "pd.read_excel('MMG{Y+1}_{Y}Data_ToShare.xlsx', sheet_name=<varies>)",
+    "key_cols": [
+      "FIPS",
+      "State",
+      "County",
+      "<FI rate col varies>"
+    ],
+    "join_on": "FIPS, State",
+    "quirks": "The data has a reporting delay of 2 years e.g. MMG_2011_2009 is data published in 2011, but about 2009. Column and sheet names change every year. Find FI rate column by searching for 'insecurity'. 2018: header=1. 2022 file covers 2019+2020."
+  },
+  "social_vulnerability_index": {
+    "desc": "CDC/ATSDR SVI, US county level, 2020 and 2022. 158 cols, ~3143 rows.",
+    "rows": 3143,
+    "years": "2020, 2022",
+    "geo": "county",
+    "load": "pd.read_csv('SVI_{year}_US_county.csv')",
+    "key_cols": [
+      "FIPS",
+      "STATE",
+      "ST_ABBR",
+      "COUNTY",
+      "RPL_THEMES",
+      "E_TOTPOP"
+    ],
+    "join_on": "FIPS (zero-pad: .astype(str).str.zfill(5))",
+    "quirks": "FIPS is integer, zero-pad for joins. RPL_THEMES=overall vulnerability (0=least,1=most). E_=count, EP_=%, EPL_=percentile, RPL_=rank."
+  }
+}

@@ -1,0 +1,26 @@
+{
+    "census_population": {
+        "cache_location": "/home/zayan/.cache/huggingface/hub/datasets--zayanhugsAI--census_population/snapshots/5a1680c29c93aae1cce72c3443c1afed4ec631cb",
+        "repo_id": "zayanhugsAI/census_population"
+    },
+    "naco": {
+        "cache_location": "/home/zayan/.cache/huggingface/hub/datasets--zayanhugsAI--naco/snapshots/654328b4f5b5aa3150d26fb4e5e669b77b0419ef",
+        "repo_id": "zayanhugsAI/naco"
+    },
+    "nors": {
+        "cache_location": "/home/zayan/.cache/huggingface/hub/datasets--zayanhugsAI--nors/snapshots/470514dec8d88f26a7186344f7f511fa372ddd8e",
+        "repo_id": "zayanhugsAI/nors"
+    },
+    "pulsenet": {
+        "cache_location": "/home/zayan/.cache/huggingface/hub/datasets--zayanhugsAI--pulsenet/snapshots/93b6ba578b340211d67ea353e77ed917ad798107",
+        "repo_id": "zayanhugsAI/pulsenet"
+    },
+    "map_the_meal_gap": {
+        "cache_location": "/home/zayan/.cache/huggingface/hub/datasets--zayanhugsAI--map_the_meal_gap/snapshots/00ec583848152c3e1fb01dd2809c1850c577881a",
+        "repo_id": "zayanhugsAI/map_the_meal_gap"
+    },
+    "social_vulnerability_index": {
+        "cache_location": "/home/zayan/.cache/huggingface/hub/datasets--zayanhugsAI--social_vulnerability_index/snapshots/9bb6f44cb04883ba56fd228c4ca50b922d0a4e1f",
+        "repo_id": "zayanhugsAI/social_vulnerability_index"
+    }
+}

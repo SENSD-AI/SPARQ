@@ -25,6 +25,8 @@ selected_data/
 # Track data summaries
 !data/
 !data/data_summaries*
+!src/sparq/data/
+!src/sparq/data/*
 
 # Model files
 models/
