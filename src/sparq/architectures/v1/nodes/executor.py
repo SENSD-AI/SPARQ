@@ -12,12 +12,12 @@ from sparq.tools.python_repl.namespace import get_ns_path, load_ns, save_ns
 from sparq.tools.filesystemtools import filesystemtools
 from sparq.tools.data_discovery_tools import make_load_dataset_tool, get_sheet_names, find_csv_excel_files, get_cached_dataset_path
 
-from langgraph.graph import END
-from langgraph.types import Send
 from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 from langchain_core.messages import SystemMessage
-from langgraph.prebuilt import create_react_agent
 from langchain_core.runnables.config import RunnableConfig
+from langchain.agents import create_agent
+
+from deepagents import create_deep_agent
 
 MAX_NAMESPACE_VARS_WARNING = 30
 
@@ -178,11 +178,11 @@ async def execute_single_step_worker(step: Step, run_id: str, llm_config: LLMSet
     system_prompt_str: str = system_prompt_template.invoke(input={}).to_string()
     system_prompt: SystemMessage = SystemMessage(content=system_prompt_str)
 
-    agent = create_react_agent(
+    agent = create_agent(
         model=llm_object,
         tools=_tools,
-        prompt=system_prompt,
-        response_format=(prompt, StepResult),
+        system_prompt=system_prompt,
+        response_format=StepResult,
     )
 
     context = _build_context(dependency_results, ns_context)
@@ -200,7 +200,7 @@ async def execute_single_step_worker(step: Step, run_id: str, llm_config: LLMSet
     return result
 
 
-def test_executor(plan: Plan):
+async def test_executor(plan: Plan):
     print(f"Testing executor node with sample plan: \n {plan.pretty_print()}")
 
     from sparq.settings import (
@@ -226,11 +226,11 @@ def test_executor(plan: Plan):
     data_context = load_data_context(DATA_MANIFEST_PATH, DATA_SUMMARIES_SHORT_PATH)
 
     assert run_dir is not None
-    state = State(query="", route=None, answer=None, plan=plan, data_context=data_context, executor_results={})
-    response = executor_node(state=state, config={"configurable": {"run_id": "test"}}, llm_config=system_settings.llm_config.executor, prompt=prompt, output_dir=run_dir)
-    
-    for step, result in response['executor_results'].items():
-        print(step)
+    state = State(query="", route=None, answer=None, plan=plan, data_context=data_context)
+    response = await executor_node(state=state, config={"configurable": {"run_id": "test"}}, llm_config=system_settings.llm_config.executor, worker_prompt=prompt, output_dir=run_dir)
+
+    for result in response['results']:
+        print(result.id)
         print(result)
 
 if __name__ == "__main__":
@@ -244,7 +244,7 @@ if __name__ == "__main__":
                 datasets=[],
                 rationale="The pulsenet dataset contains information about various pathogens, including their serotypes and sources of isolation. Loading it into a dataframe will allow us to analyze the data and find correlations.",
                 task_type=["data_mining"],
-                dependencies=None
+                dependencies=[]
             ),
             Step(
                 id=2,
@@ -259,4 +259,4 @@ if __name__ == "__main__":
         misc="This is a sample plan for testing purposes."
     )
     
-    test_executor(sample_plan)
+    asyncio.run(test_executor(sample_plan))

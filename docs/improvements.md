@@ -17,6 +17,7 @@
 | Data science coding skill for executor | Medium | High (agent code quality) | [ ] |
 | **Artifact organizer node** (supersedes #3, #4, #5) | Medium | High (output quality) | [ ] |
 | Aggregator token-budget truncation + RAG fallback | Medium | High (robustness) | [ ] |
+| Bedrock grammar-size blowup with many bound tools | Medium | High (provider compat) | [ ] |
 
 ---
 
@@ -364,6 +365,42 @@ Truncation is a stopgap. For genuinely large result sets (many steps, large data
 ### Follow-up: per-model context window
 
 `DEFAULT_CONTEXT_WINDOW` is a single guessed constant. A more accurate design would either add a lookup table of known model context windows (with this constant as the fallback for unrecognized models), or a `context_window` field on `LLMSetting` so it's configurable per-node in `config.toml`.
+
+---
+
+## 14. Bedrock grammar-size blowup with many bound tools
+
+**Files**: `src/sparq/architectures/v1/nodes/executor.py`, `config_v1.toml` (local dev config)
+
+### Problem
+
+When the executor worker's local dev config (`config_v1.toml`) points `llm_config.executor` at an `aws_bedrock` model (`us.anthropic.claude-sonnet-4-5-20250929-v1:0`), every worker call fails immediately on the first LLM turn — before any tool is even invoked — with:
+
+```
+ValidationException: The model returned the following errors: Compiled grammar size (484.8MB)
+exceeds maximum allowed size (300MB). Simplify your JSON schema to reduce grammar complexity.
+```
+
+Reproduced 2026-07-02 via `uv run python -m sparq.architectures.v1.nodes.executor` (the fixed `test_executor`/`__main__` block — see item covering the parallel-execution todo list). Confirmed via a LangSmith trace and a direct patch of `ChatBedrockConverse`'s underlying `client.converse` call.
+
+### Root cause (partial)
+
+`execute_single_step_worker` binds 16 tools to the worker agent: 7 `deepagents` built-ins (`write_todos`, `ls`, `read_file`, `write_file`, `edit_file`, `glob`, `grep`, `task`) plus 9 of ours (`load_dataset`, `get_sheet_names`, `python_repl_tool`, `find_csv_excel_files`, `get_cached_dataset_path`, and the 4 `filesystemtools`). `response_format=StepResult` forces the model into a required tool-choice, so Bedrock's Converse API must compile a single constrained-decoding grammar covering all 16 tool schemas plus the structured-output extraction schema at once.
+
+Measured total raw JSON schema text for all 16 tools: ~5KB — far too small to explain a 484.8MB compiled grammar by size alone. This points to combinatorial blowup during grammar compilation, likely driven by `anyOf`/nullable fields (e.g. `Optional[str] = None` params such as `python_repl_tool`'s `code` argument) multiplying across tools when a single automaton must represent "any of 16 tools, each with its own optional-field branches," rather than the schema text size itself.
+
+Two unrelated but adjacent tool-schema bugs were found and fixed while investigating (both only surfaced under Bedrock's stricter schema validation — Gemini, the repo's default provider, tolerates them):
+- `get_sheet_names(file_path)` had no type annotation, producing an empty `{}` JSON schema Bedrock rejected outright.
+- `find_csv_excel_files(root_dir: Path | str)` produced a `"format": "path"` JSON schema field Bedrock doesn't support; narrowed to `root_dir: str` (the function already coerced to `Path` internally).
+
+Fixing those two did not resolve the grammar-size error — it is a separate, harder problem.
+
+### Not yet done
+
+- Confirm whether removing `Optional[...] = None` fields (replacing with required params or sentinel defaults) reduces compiled grammar size meaningfully.
+- Confirm whether reducing bound tool count (e.g. trimming `filesystemtools` to only what a given step needs) is the more tractable fix versus reworking every tool signature.
+- Consider whether `response_format`'s forced tool-choice is the primary multiplier — if so, whether `deepagents`/`langchain.agents.create_agent` exposes a way to use `tool_choice="auto"` for structured output on Bedrock specifically.
+- No workaround implemented yet; `config_v1.toml`'s local dev config currently cannot run the executor end-to-end against Bedrock. Testing has continued against `google_genai` (the repo's default provider), which does not hit this wall.
 
 ---
 

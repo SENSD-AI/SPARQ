@@ -51,7 +51,7 @@ def make_load_dataset_tool(ns_path: str):
     return load_dataset
 
 @tool
-def get_sheet_names(file_path):
+def get_sheet_names(file_path: str):
     """
     Returns the sheet names of an Excel file. (Only works if argument is an excel file)
     Args:
@@ -102,24 +102,23 @@ def get_cached_dataset_path(repo_id: str):
     return Path(path)
 
 @tool
-def find_csv_excel_files(root_dir: Path | str) -> list[Path]:
+def find_csv_excel_files(root_dir: str) -> list[Path]:
     """
     Recursively find all CSV and Excel files in a directory.
 
     This tool is especially useful for discovering datasets in a directory when the exact file names are not known. It searches for files with .csv, .xls, and .xlsx extensions.
     For example, data inside huggingface cache directories often have unpredictable names, so this tool can help locate the relevant dataset files.
-    
+
     Args:
-        root_dir (Path): Root directory to search.
-    
+        root_dir (str): Root directory to search.
+
     Returns:
         List[Path]: List of file paths with .csv, .xls, or .xlsx extensions.
     """
     from pathlib import Path
-    
-    if isinstance(root_dir, str):
-        root_dir = Path(root_dir)
-    
+
+    root_dir = Path(root_dir)
+
     if not root_dir.is_dir():
         raise NotADirectoryError(f"{root_dir} is not a valid directory")
 
