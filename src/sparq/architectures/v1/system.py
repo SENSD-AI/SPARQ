@@ -12,7 +12,7 @@ from sparq.architectures.v1.nodes.aggregator import aggregator_node
 from sparq.architectures.v1.nodes.saver import saver_node
 from sparq.schemas.state import State
 from sparq.utils.helpers import load_text
-from sparq.tools.python_repl.namespace import cleanup_ns
+from sparq.tools.python_repl.namespace import cleanup_run
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import RetryPolicy
@@ -83,7 +83,7 @@ class Agentic_system:
                                                 stream_mode="updates"):
                 print(chunk)
         finally:
-            cleanup_ns(run_id)
+            cleanup_run(run_id)
 
     def save_results(self):
         pass

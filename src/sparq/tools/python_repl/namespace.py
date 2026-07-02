@@ -22,6 +22,14 @@ def cleanup_ns(run_id: str):
     if path and os.path.exists(path):
         os.unlink(path)
 
+def cleanup_run(run_id: str):
+    """Removes the main run namespace plus any per-step namespaces
+    (`{run_id}_step_{n}`) created by parallel workers for this run."""
+    prefix = f"{run_id}_step_"
+    keys_to_remove = [key for key in _ns_paths if key == run_id or key.startswith(prefix)]
+    for key in keys_to_remove:
+        cleanup_ns(key)
+
 def load_ns(ns_path: str) -> dict:
     """Load namespace from a pickle file, returning an empty dict if the file is empty or corrupted."""
     with open(ns_path, "rb") as f:
