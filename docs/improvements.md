@@ -16,6 +16,7 @@
 | Human-readable REPL tracebacks | Low | Medium (debuggability) | [x] |
 | Data science coding skill for executor | Medium | High (agent code quality) | [ ] |
 | **Artifact organizer node** (supersedes #3, #4, #5) | Medium | High (output quality) | [ ] |
+| Aggregator token-budget truncation + RAG fallback | Medium | High (robustness) | [ ] |
 
 ---
 
@@ -329,6 +330,40 @@ A JSON file (`artifact_map.json`) is written to `run_dir` and a matching `artifa
 ```
 
 The aggregator receives this map instead of (or alongside) raw `executor_results`, giving it a compact, pre-interpreted briefing it can reference directly when writing the final report.
+
+---
+
+## 13. Aggregator token-budget truncation + RAG fallback
+
+**Files**: `src/sparq/architectures/v1/nodes/aggregator.py`, `src/sparq/settings.py`
+
+### Problem
+
+`aggregator_node` formats all `StepResult`s into a single prompt string with no check against the target model's context window. A plan with many steps, or steps with large `execution_results`/`misc` text, can silently exceed the model's input limit and fail (or get server-side truncated) at `llm.invoke()`.
+
+### Current state
+
+`count_tokens()` uses a local `tiktoken` `cl100k_base` encoding to estimate token count for the formatted results string before the aggregator LLM call — deliberately not `llm.get_num_tokens()`, since some provider integrations (e.g. `ChatGoogleGenerativeAI`, the default provider here) implement that as a live API call (`self.client.models.count_tokens(...)`), which would add network latency/cost to every aggregator run and would be called repeatedly if used inside a retry loop. `cl100k_base` is an approximation for non-OpenAI models but is local and free.
+
+The budget compared against is `llm_config.max_tokens` (an existing, previously-unused field on `LLMSetting`) falling back to `DEFAULT_CONTEXT_WINDOW = 128_000` if unset. There is no per-model context-window table in the codebase, so this is a coarse guess — see "Follow-up" below.
+
+`truncate_results(results, max_tokens)` is currently a stub (`pass`) — not yet implemented.
+
+### Design for `truncate_results`
+
+Iteratively reduce the formatted size, prioritizing which content survives:
+
+1. **Drop least-important fields first, across all steps**, in order: `misc` → `files_generated` → `step` (description). Re-check token count after each drop; stop as soon as it fits.
+2. **Shrink `execution_results` text as a last resort** (this is the actual analytical content and most valuable to the aggregator) — proportionally cut per step, e.g. try keeping 75% / 50% / 25% / 10% of each step's text, re-checking after each pass.
+3. **If still over budget after aggressive truncation**, warn (`warnings.warn`) that the result set is too large for single-shot aggregation and recommend a RAG-based retrieval approach instead of blind truncation. Return the maximally-truncated string anyway (best effort) rather than failing the run.
+
+### Follow-up: RAG module (not implemented now)
+
+Truncation is a stopgap. For genuinely large result sets (many steps, large datasets/reports), a retrieval step should let the aggregator pull only the passages relevant to the user's query instead of degrading all step content uniformly. This would be a new module (e.g. `tools/rag/`) that indexes `StepResult` content — and would also serve the "retrieval" track in the v2.2 DAG-based macro-decomposition design and the v2.2 RAG sub-component (see v2 section below). Scoped separately since it's a new subsystem, not a targeted fix.
+
+### Follow-up: per-model context window
+
+`DEFAULT_CONTEXT_WINDOW` is a single guessed constant. A more accurate design would either add a lookup table of known model context windows (with this constant as the fallback for unrecognized models), or a `context_window` field on `LLMSetting` so it's configurable per-node in `config.toml`.
 
 ---
 
