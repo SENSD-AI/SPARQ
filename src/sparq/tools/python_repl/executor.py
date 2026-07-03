@@ -195,6 +195,10 @@ def _target(code: str, ns_path: str, result_path: str) -> None:
       5. On success: merge updated variables back into the namespace pickle file.
       6. Write a JSON result to result_path.
     """
+    # Force a non-interactive backend so plt.show() can't pop up a GUI window
+    # from this headless subprocess; must be set before matplotlib is imported.
+    os.environ.setdefault("MPLBACKEND", "Agg")
+
     result = OutputSchema(output="", error=None, success=False, namespace={})
 
     try:

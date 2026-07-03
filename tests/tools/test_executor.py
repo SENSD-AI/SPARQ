@@ -197,6 +197,33 @@ plt.savefig('test_plot.png')
         if os.path.exists('test_plot.png'):
             os.remove('test_plot.png')
 
+    def test_matplotlib_uses_non_interactive_backend(self):
+        """Test that matplotlib is forced onto a non-interactive backend, so plt.show()
+        can't pop up a GUI window from the headless subprocess."""
+        code = """import matplotlib
+matplotlib.get_backend()
+"""
+        result = execute_code(code, ns_path=None, timeout=5)
+        self.assertTrue(result.success)
+        self.assertEqual(result.output.lower(), "agg")
+
+    def test_show_after_savefig_does_not_fail(self):
+        """Test that plt.show() following plt.savefig() executes without error
+        (no display is available, so it must silently no-op)."""
+        import os
+
+        code = """import matplotlib.pyplot as plt
+plt.plot([1, 2, 3], [4, 5, 6])
+plt.savefig('test_show_plot.png')
+plt.show()
+"""
+        result = execute_code(code, ns_path=None, timeout=5)
+        self.assertTrue(result.success)
+        self.assertTrue(os.path.exists('test_show_plot.png'))
+
+        if os.path.exists('test_show_plot.png'):
+            os.remove('test_show_plot.png')
+
     def test_traceback_shows_source_line(self):
         """Test that runtime error tracebacks reference '<repl>' and show the offending source line."""
         code = "x = [1, 2, 3]\nfor item in x.sort():\n    print(item)"
