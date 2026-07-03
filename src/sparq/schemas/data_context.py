@@ -8,6 +8,7 @@ class DataContext(BaseModel):
     manifest: dict
     summaries: dict
 
+    # Add a __str__ method. Usage: print(data_context) will print the manifest and summaries in a readable format.
     def __str__(self) -> str:
         return (
             "=== Data Manifest ===\n"

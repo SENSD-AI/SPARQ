@@ -19,6 +19,8 @@ from langchain.agents import create_agent
 
 from deepagents import create_deep_agent
 
+import rich
+
 MAX_NAMESPACE_VARS_WARNING = 30
 
 
@@ -158,7 +160,7 @@ async def execute_single_step_worker(step: Step, run_id: str, llm_config: LLMSet
     worker_ns: str = get_ns_path(step_ns_id)
     num_vars, ns_context = merge_namespaces_of_previous_deps(step, run_id)
     if num_vars > MAX_NAMESPACE_VARS_WARNING:
-        print(f"[Worker Agent] step {step.id}: {num_vars} variables inherited from dependencies, exceeds {MAX_NAMESPACE_VARS_WARNING} — risk of context bloat.")
+        rich.print(f"[red]WARNING: [Worker Agent] step {step.id}: {num_vars} variables inherited from dependencies, exceeds {MAX_NAMESPACE_VARS_WARNING} — risk of context bloat.[/red]")
 
     # Create Deep Agent
     llm_object = get_llm(llm_config.model_name, llm_config.provider)

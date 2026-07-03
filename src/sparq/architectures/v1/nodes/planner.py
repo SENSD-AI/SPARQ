@@ -19,7 +19,7 @@ def planner_node(state: State, llm_config: LLMSetting, sys_prompt: str):
     Returns:
         dict: A dictionary containing the generated plan and data context.
     """
-    print("Making a plan to answer your query")
+    print("[Planner]: Making a plan to answer your query")
 
     llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
 
