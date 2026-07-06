@@ -1,7 +1,7 @@
 # Parallel Execution (feat/parallel-repl-execution)
 - [x] Fix `aggregator.py` — still reads `state.executor_results` (old format); update to consume `state.results: List[StepResult]`
 - [x] Clean up per-step namespaces — `cleanup_ns` in `system.py` only removes the main run namespace; add cleanup for `{run_id}_step_{n}` temp files created by workers
-- [ ] End-to-end test — run `uv run sparq -t` and verify the parallel execution path works correctly
+- [x] End-to-end test — run `uv run sparq -t` and verify the parallel execution path works correctly
 - [ ] Remove unused scaffolding — `WorkerState` in `state.py` and `Send`/`END` imports in `executor.py` (leftover from abandoned LangGraph fan-out design)
 - [ ] Fix `test_executor`/`__main__` in `executor.py` — still calls old `executor_node` signature and references removed `executor_results` field
 

@@ -199,6 +199,8 @@ async def execute_single_step_worker(step: Step, run_id: str, llm_config: LLMSet
 
     result.id = step.id
     result.step = step.step_description
+
+    print(f"[Worker Agent] completed step {step.id}: {step.step_description}")
     return result
 
 
