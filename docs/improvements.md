@@ -18,6 +18,7 @@
 | **Artifact organizer node** (supersedes #3, #4, #5) | Medium | High (output quality) | [ ] |
 | Aggregator token-budget truncation + RAG fallback | Medium | High (robustness) | [ ] |
 | Bedrock grammar-size blowup with many bound tools | Medium | High (provider compat) | [ ] |
+| User-facing step-completion tracker (resumable) | High | High (product scope) | [ ] |
 
 ---
 
@@ -408,6 +409,50 @@ Swapping `create_deep_agent` for `langchain.agents.create_agent` (same call shap
 - Determine whether `deepagents`' subagent delegation / todo tracking can be recovered on Bedrock without hitting the grammar limit — e.g. by trimming which built-in tools `create_deep_agent` binds (if configurable), or by reducing the custom tool set bound alongside it so the combined total stays low enough.
 - Confirm whether `response_format`'s forced tool-choice is the primary multiplier — if so, whether there's a way to request `tool_choice="auto"` for structured output on Bedrock specifically, which might allow more tools to coexist.
 - Consider whether this limit reappears as more custom tools are added to `execute_single_step_worker` over time, even with plain `create_agent`, since the underlying Anthropic grammar-compiler limit is not itself fixed (see anthropics/anthropic-sdk-python#1185 above) — only worked around here by keeping the tool count low.
+
+---
+
+## 15. User-facing step-completion tracker (resumable)
+
+**Files**: `src/sparq/architectures/v1/nodes/executor.py`, `src/sparq/architectures/v1/system.py`, `src/sparq/schemas/state.py`
+
+**Design doc**: [`docs/parallel_execution.md`](parallel_execution.md), "Future requirement: user-facing step-completion tracker" section
+
+### Problem
+
+There is currently no way for a user-facing UI to show which plan steps have completed while the
+executor is mid-run, and no way to hand control back to the user (they disconnect or do something
+else) and later reconnect to accurate progress. The executor's current `asyncio.gather`-in-one-node
+design (see `parallel_execution.md`) is opaque to LangGraph: the graph only sees `executor_node`
+start and finish as a single unit, with no per-step events and no mid-node checkpoint to resume
+progress from.
+
+### Design
+
+Two implementation paths, laid out in full in `parallel_execution.md`:
+
+1. **Lightweight, no rearchitecture**: switch `asyncio.gather` to `asyncio.as_completed` so results
+   are yielded as each step lands, and call `get_stream_writer()` inside
+   `execute_single_step_worker` per completed step; consume via `stream_mode="custom"`. Gives a
+   live progress feed while the connection stays open, but the progress state itself isn't
+   persisted anywhere the graph's own checkpointer knows about — a reconnecting user would need a
+   hand-built side store (e.g. completed step IDs written somewhere, keyed by `run_id`).
+2. **Migrate to `Send`-based fan-out**: each worker becomes a distinct graph node invocation
+   (dispatched via `langgraph.types.Send`, carrying a `WorkerState` payload), which makes per-step
+   completion a native `stream_mode="updates"` event and makes `completed_plan_steps`/`results`
+   resumable from a real LangGraph checkpoint — no bespoke side store needed. This is the design
+   that was originally scaffolded (`WorkerState` in `state.py`, `Send`/`END` imports in
+   `executor.py`) and abandoned in favor of `asyncio.gather` before this requirement existed; see
+   `parallel_execution.md`'s "Alternative considered" section for why it lost that comparison and
+   what reviving it would require (the dispatcher-loop wiring for dependency batching was never
+   built).
+
+### Recommendation
+
+If the actual requirement is "hand control back and reconnect later with accurate progress,"
+prefer the `Send`-based migration — resumability is structural there, not bolted on. If a live
+progress bar on an open connection turns out to be sufficient in practice, the `get_stream_writer()`
++ `as_completed` change is far less work and ships without touching the executor's control flow.
 
 ---
 
