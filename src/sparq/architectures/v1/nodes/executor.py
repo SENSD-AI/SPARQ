@@ -196,7 +196,7 @@ async def execute_single_step_worker(step: Step, run_id: str, llm_config: LLMSet
 
     agent = create_agent(
         model=llm_object,
-        name=f"Agent {step.id}"
+        name=f"Agent {step.id}",
         tools=_tools,
         middleware=[TodoListMiddleware()],
         system_prompt=system_prompt,

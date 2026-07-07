@@ -82,24 +82,18 @@ def get_cached_dataset_path(repo_id: str):
     Args:
         repo_id (str): The repository ID of the dataset on Hugging Face Hub.
     Returns:
-        Path: The path to the cached dataset. (If dataset doesn't exist, it will be attempted to be downloaded.)
+        Path: The path to the cached dataset.
     """
-    from huggingface_hub import snapshot_download
-    import os
-    from pathlib import Path
-    
-    # Load HF Token
-    HF_TOKEN = os.getenv("HF_TOKEN")
-    if HF_TOKEN is None:
-        raise ValueError("HF_TOKEN environment variable is not set. Please set it before running the script.")
-    
-    # get path to cached dataset
-    try:
-        path = snapshot_download(repo_id=repo_id, repo_type="dataset", token=HF_TOKEN, local_files_only=True)
-    except Exception as e:
-        raise FileNotFoundError(f"Dataset with repo_id {repo_id} not found in cache. Please download it first.") from e
+    from sparq.utils.download_data import friendly_dataset_dir
 
-    return Path(path)
+    dataset_name = repo_id.split("/")[-1]
+    path = friendly_dataset_dir(dataset_name)
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Dataset with repo_id {repo_id} not found. Run `uv run python -m sparq.utils.download_data` first."
+        )
+
+    return path
 
 @tool
 def find_csv_excel_files(root_dir: str) -> list[Path]:
