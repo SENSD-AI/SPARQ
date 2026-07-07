@@ -35,4 +35,4 @@ class StepResult(BaseModel):
     step: str = Field(..., description="What you were tasked to do by the user")
     execution_results: str = Field("", description="Summary of results of running your code.")
     files_generated: List[str] = Field(default_factory=list, description="Files generated during execution")
-    misc: str = Field("", description="Anything else you want to note, e.g. caveats, observations, or next steps")
+    misc: str = Field("", description="Anything else you want to note, e.g. caveats, observations, justifications, rationales or next steps")

@@ -9,8 +9,8 @@ uv run experiments/00.py k : Run SPARQ on first k questions
 import asyncio
 import sys
 
-from sparq.system import Agentic_system
-from sparq.settings import ENVSettings, AgenticSystemSettings
+from sparq.architectures.v1.system import Agentic_system
+from sparq.settings import ENVSettings
 
 QUESTIONS = [
     # "What is the most common food vehicle associated with salmonella outbreaks?",
@@ -40,7 +40,6 @@ def main():
         questions = QUESTIONS
 
     ENVSettings()
-    AgenticSystemSettings(verbose=True)
     
     agentic_system = Agentic_system()
     
