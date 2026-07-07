@@ -19,6 +19,7 @@
 | Aggregator token-budget truncation + RAG fallback | Medium | High (robustness) | [ ] |
 | Bedrock grammar-size blowup with many bound tools | Medium | High (provider compat) | [ ] |
 | User-facing step-completion tracker (resumable) | High | High (product scope) | [ ] |
+| Sub-task parallelism within a worker (`spawn_subtasks`) | Medium | Medium (throughput) | [ ] |
 
 ---
 
@@ -453,6 +454,34 @@ If the actual requirement is "hand control back and reconnect later with accurat
 prefer the `Send`-based migration — resumability is structural there, not bolted on. If a live
 progress bar on an open connection turns out to be sufficient in practice, the `get_stream_writer()`
 + `as_completed` change is far less work and ships without touching the executor's control flow.
+
+---
+
+## 16. Sub-task parallelism within a worker (`spawn_subtasks`)
+
+**Files**: `src/sparq/tools/subtask_tools.py` (new), `src/sparq/architectures/v1/nodes/executor.py`, `src/sparq/architectures/v1/prompts/executor_message.txt`
+
+**Design doc**: [`docs/subtask_parallelism.md`](subtask_parallelism.md)
+
+### Problem
+
+The executor parallelizes independent plan `Step`s (`docs/parallel_execution.md`), but a single
+step's worker has no way to parallelize independent sub-parts of its own task — e.g. computing
+several unrelated statistics over the same loaded dataset happens one tool call at a time.
+
+### Why not `deepagents`' generic `task` tool
+
+Considered and rejected: `SubAgentMiddleware` builds each subagent's tools once at
+agent-construction time, so every `task` call to the same subagent type would reuse one REPL tool
+bound to one fixed namespace path. Since sub-tasks here need to leave variables behind for the
+parent step (not just report text), concurrent `task` calls would race on the same namespace pickle
+file — the same class of bug `docs/improvements.md` #1 already solved at the step level. Full
+reasoning and a purpose-built `spawn_subtasks` tool (with the same seed/execute/merge/cleanup
+namespace lifecycle, one level deeper, and a one-level recursion cap) are in `subtask_parallelism.md`.
+
+### Not yet done
+
+Design only — `spawn_subtasks` has not been implemented or wired into `execute_single_step_worker` yet.
 
 ---
 
