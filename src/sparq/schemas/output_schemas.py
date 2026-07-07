@@ -33,6 +33,7 @@ class StepResult(BaseModel):
     """The result of executing a single step"""
     id: int = Field(..., description="ID of the step (step 1, step 2, ...)")
     step: str = Field(..., description="What you were tasked to do by the user")
+    success: bool = Field(..., description="Whether the step was successful or not")
     execution_results: str = Field("", description="Summary of results of running your code.")
     files_generated: List[str] = Field(default_factory=list, description="Files generated during execution")
     misc: str = Field("", description="Anything else you want to note, e.g. caveats, observations, justifications, rationales or next steps")

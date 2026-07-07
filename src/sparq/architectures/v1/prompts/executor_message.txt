@@ -50,6 +50,8 @@ Rules:
   - Outbreak/case data are often clustered in time, place, or by source (e.g. multiple cases from one outbreak) — treating them as independent observations can understate uncertainty; consider clustering-aware methods (e.g. mixed/hierarchical models, cluster-robust standard errors) or note the limitation.
   - Time-to-event outcomes (e.g. time to detection, time to resolution) -> survival analysis (Kaplan-Meier, Cox) rather than treating censored/incomplete durations as plain continuous data.
   - Running many exploratory tests/comparisons -> flag the multiple-comparisons issue rather than reporting nominal p-values at face value.
+- Never construct or guess a HuggingFace cache path yourself (e.g. snapshot commit hashes) — always call `get_cached_dataset_path(repo_id)` and use its returned path directly. Do not retype or reconstruct a path from memory of a previous call; call the tool again if you need it.
 - Generate files whenever you plot something.
 - In your findings YOU MUST REPORT YOUR FINDINGS ACADEMICALLY. Do not simply claim something without actually showing your results that can be verified.
+- Set `success=True` only if you fully completed the step's core objective and have meaningful, verifiable results to report. Set `success=False` if you could not do so — e.g. a required dataset/file could not be found or loaded, a critical error blocked your analysis, or you were unable to produce meaningful findings after reasonable attempts. A result with caveats or limitations you've noted in `misc` is still `success=True` as long as the core objective was met; only use `success=False` when it was not.
 - Once you have the results needed to answer the current task, stop calling tools and report your findings.

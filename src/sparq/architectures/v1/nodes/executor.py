@@ -21,6 +21,7 @@ from langchain.agents.middleware import TodoListMiddleware
 import rich
 
 MAX_NAMESPACE_VARS_WARNING = 30
+MAX_RETRY = 3
 
 
 def _build_context(dependency_results: List[StepResult], ns_context: str) -> str:
@@ -38,6 +39,7 @@ def _build_context(dependency_results: List[StepResult], ns_context: str) -> str
         lines = ["Results from steps this step depends on:"]
         for dep in dependency_results:
             lines.append(f"\nStep {dep.id}: {dep.step}")
+            lines.append(f" Step Successful: {dep.success}")
             lines.append(f"  Results: {dep.execution_results}")
             if dep.misc:
                 lines.append(f"  Notes: {dep.misc}")
@@ -102,8 +104,10 @@ async def executor_node(state: State, config: RunnableConfig, llm_config: LLMSet
     plan = state.plan
     completed = set() # Why a set instead of a list? -> Downstream checking for completed steps is faster on a set than a list
     all_results: List[StepResult] = []
+    attempt_counts: dict[int, int] = {} # Tracking the attempt counts for each step
 
     while len(completed) < len(plan.steps):
+        # Stage 1: Add steps that are ready to be executed to a list
         ready_steps: List[Step] = []
 
         for step in plan.steps:
@@ -123,6 +127,7 @@ async def executor_node(state: State, config: RunnableConfig, llm_config: LLMSet
 
         print(f"[Executor Node] Spawning {len(ready_steps)} parallel worker agents...")
 
+        # Step 2: Execute the steps that are ready
         tasks = []
         for step in ready_steps:
             dependency_results: List[StepResult] = get_results_of_dependent_steps(step, state)
@@ -138,11 +143,21 @@ async def executor_node(state: State, config: RunnableConfig, llm_config: LLMSet
                 )
             )
 
+        # Step 3: Track steps that were completed successfully and return them
         batch_results: List[StepResult] = await asyncio.gather(*tasks)
 
         for result in batch_results:
-            completed.add(result.id)
-            all_results.append(result)
+            if result.success:
+                completed.add(result.id)
+                all_results.append(result)
+            else:
+                attempt_counts[result.id] = attempt_counts.get(result.id, 0) + 1
+                if attempt_counts[result.id] >= MAX_RETRY:
+                    rich.print(f"[red]WARNING: Step {result.id} failed after {attempt_counts[result.id]} retries - accepting as terminal failure. [/red]")
+                    completed.add(result.id)
+                    all_results.append(result)
+                else:
+                    rich.print(f"[yellow]Step {result.id} failed (attempt {attempt_counts[result.id]}/{MAX_RETRY}), retrying...[/yellow]")
 
         # Keep `state` in sync so the next batch's get_results_of_dependent_steps sees this round's results.
         state = state.model_copy(update={"completed_plan_steps": list(completed), "results": all_results})
@@ -181,6 +196,7 @@ async def execute_single_step_worker(step: Step, run_id: str, llm_config: LLMSet
 
     agent = create_agent(
         model=llm_object,
+        name=f"Agent {step.id}"
         tools=_tools,
         middleware=[TodoListMiddleware()],
         system_prompt=system_prompt,
@@ -195,7 +211,7 @@ async def execute_single_step_worker(step: Step, run_id: str, llm_config: LLMSet
         response = await agent.ainvoke(agent_input, config={"recursion_limit": llm_config.recursion_limit})
         result: StepResult = response["structured_response"]
     except Exception as e:
-        result = StepResult(id=step.id, step=step.step_description, execution_results="", misc=f"Step failed: {e}")
+        result = StepResult(id=step.id, step=step.step_description, success=False, execution_results="", misc=f"Step failed: {e}")
 
     result.id = step.id
     result.step = step.step_description
