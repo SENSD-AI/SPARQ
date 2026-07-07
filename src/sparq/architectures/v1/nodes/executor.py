@@ -16,8 +16,7 @@ from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables.config import RunnableConfig
 from langchain.agents import create_agent
-
-from deepagents import create_deep_agent
+from langchain.agents.middleware import TodoListMiddleware
 
 import rich
 
@@ -183,6 +182,7 @@ async def execute_single_step_worker(step: Step, run_id: str, llm_config: LLMSet
     agent = create_agent(
         model=llm_object,
         tools=_tools,
+        middleware=[TodoListMiddleware()],
         system_prompt=system_prompt,
         response_format=StepResult,
     )
