@@ -457,9 +457,9 @@ progress bar on an open connection turns out to be sufficient in practice, the `
 
 ---
 
-## 16. Sub-task parallelism within a worker (`spawn_subtasks`)
+## 16. Sub-task parallelism within a worker (`async_subagent_tool`)
 
-**Files**: `src/sparq/tools/subtask_tools.py` (new), `src/sparq/architectures/v1/nodes/executor.py`, `src/sparq/architectures/v1/prompts/executor_message.txt`
+**Files**: `src/sparq/tools/async_subagent/subagent.py` (scaffolded, not yet implemented), `src/sparq/tools/python_repl/namespace.py`, `src/sparq/architectures/v1/nodes/executor.py`, `src/sparq/architectures/v1/prompts/executor_message.txt`
 
 **Design doc**: [`docs/subtask_parallelism.md`](subtask_parallelism.md)
 
@@ -475,13 +475,34 @@ Considered and rejected: `SubAgentMiddleware` builds each subagent's tools once 
 agent-construction time, so every `task` call to the same subagent type would reuse one REPL tool
 bound to one fixed namespace path. Since sub-tasks here need to leave variables behind for the
 parent step (not just report text), concurrent `task` calls would race on the same namespace pickle
-file — the same class of bug `docs/improvements.md` #1 already solved at the step level. Full
-reasoning and a purpose-built `spawn_subtasks` tool (with the same seed/execute/merge/cleanup
-namespace lifecycle, one level deeper, and a one-level recursion cap) are in `subtask_parallelism.md`.
+file — the same class of bug `docs/improvements.md` #1 already solved at the step level.
+
+### Why not a single `spawn_subtasks(subtasks: list[str])` batching tool
+
+Also considered and rejected: the worker's `TodoListMiddleware` todo list has no code path wiring
+its `content` fields into any tool's arguments, so a batching tool would force the model to
+manually re-derive a list argument disconnected from its own task tracking. Worse, `write_todos`'s
+own tool description already documents "multiple tasks in_progress at a time if they are not
+related to each other and can be run in parallel" as its native idiom for independent work — a
+batching tool doesn't compose with that, a per-call tool does.
+
+### Chosen design
+
+One tool, one sub-task per call: `async_subagent_tool(task: str)`. The worker's own LLM
+parallelizes by emitting multiple calls to it in one turn (e.g. one per todo marked `in_progress`)
+— verified directly from the installed `langgraph.prebuilt.tool_node.ToolNode` source that
+`create_agent` already dispatches concurrent tool calls from one `AIMessage` via `asyncio.gather`,
+so no custom fan-out orchestration is needed in the tool itself. This does reopen a merge-back race
+the batching design avoided (N concurrent calls each need to read-modify-write the same parent
+namespace), addressed with a new `get_ns_lock(ns_id)` in `namespace.py` scoped around just the
+read/write touchpoints, not the sub-agent's actual work. Full reasoning, code sketch, and the
+namespace lifecycle are in `subtask_parallelism.md`.
 
 ### Not yet done
 
-Design only — `spawn_subtasks` has not been implemented or wired into `execute_single_step_worker` yet.
+Design only — `async_subagent_tool` and `get_ns_lock` have not been implemented or wired into
+`execute_single_step_worker` yet. Whether the worker's model reliably emits multiple tool calls in
+one turn (required for this design's parallelism to actually materialize) is unverified.
 
 ---
 
