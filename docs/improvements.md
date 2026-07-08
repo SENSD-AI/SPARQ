@@ -20,6 +20,9 @@
 | Bedrock grammar-size blowup with many bound tools | Medium | High (provider compat) | [ ] |
 | User-facing step-completion tracker (resumable) | High | High (product scope) | [ ] |
 | Sub-task parallelism within a worker (`spawn_subtasks`) | Medium | Medium (throughput) | [ ] |
+| Executor retries pass prior failure context to next attempt | Low | High (resilience) | [ ] |
+| Namespace variable previews (shape/dtype, not just type) | Low | Medium (agent code quality) | [ ] |
+| Token-based namespace bloat check (not variable count) | Low | Medium (robustness) | [ ] |
 
 ---
 
@@ -503,6 +506,56 @@ namespace lifecycle are in `subtask_parallelism.md`.
 Design only — `async_subagent_tool` and `get_ns_lock` have not been implemented or wired into
 `execute_single_step_worker` yet. Whether the worker's model reliably emits multiple tool calls in
 one turn (required for this design's parallelism to actually materialize) is unverified.
+
+---
+
+## 17. Executor retries discard failure context
+
+**Files**: `src/sparq/architectures/v1/nodes/executor.py`
+
+### Problem
+
+When a step fails, `attempt_counts[result.id]` is incremented (executor.py:154-160) but the failed `StepResult`'s `misc`/exception text is discarded. The retried call to `execute_single_step_worker` gets the exact same `dependency_results`, `ns_context`, and `step.step_description` as the first attempt — the fresh worker has no way to know why the previous attempt failed and can plausibly repeat the same mistake up to `MAX_RETRY` times before the step is accepted as a terminal failure.
+
+### Design
+
+Track the previous attempt's failure info per step (e.g. `last_failure: dict[int, str]`, populated from `result.misc`/the exception text at the point `attempt_counts` is incremented) and thread it into the next attempt. Extend `execute_single_step_worker` with an optional `previous_failure: str | None` parameter and fold it into `_build_context`, e.g.: `"Previous attempt failed: {previous_failure}\n\nTry a different approach."`.
+
+**Distinct from improvement #2** (executor → planner feedback loop), which replans at the plan level when too many steps fail. This is a same-step retry improvement — no routing or graph changes required.
+
+---
+
+## 18. Namespace context gives type only, no value preview
+
+**Files**: `src/sparq/architectures/v1/nodes/executor.py`, `src/sparq/tools/python_repl/namespace.py`
+
+### Problem
+
+`merge_namespaces_of_previous_deps` (executor.py:75-83) summarizes inherited variables as `name: type` only (e.g. `df: DataFrame`), with no shape, column, or dtype information. A worker that inherits a DataFrame from a dependency step has to spend a REPL tool call re-inspecting it (`df.shape`, `df.dtypes`, `df.head()`) before it can safely operate on it — burning both a round-trip and context on information that was knowable when the namespace was saved.
+
+### Design
+
+Extend the per-variable summary with a cheap, type-aware preview computed once at namespace-save/merge time rather than re-derived per prompt build:
+
+- `DataFrame`/`Series`: shape + dtypes (or a compact `.head(2)` rendering)
+- `dict`/`list`: length + first-level key names or element type
+- scalars/short strings: the value itself
+
+Keep a hard cap on preview size per variable so this doesn't reintroduce the bloat the type-only summary was designed to avoid — this is metadata, not a raw dump. Pairs with #19's token-based limit so previews can't silently push a namespace summary over budget.
+
+---
+
+## 19. Namespace bloat warning tracks variable count, not size
+
+**Files**: `src/sparq/architectures/v1/nodes/executor.py`
+
+### Problem
+
+`MAX_NAMESPACE_VARS_WARNING` (executor.py:23, checked at executor.py:176-177) flags context bloat purely by counting inherited variables. A namespace with 5 large DataFrames never trips the warning, while one with 31 small scalars does — the metric doesn't track what actually matters, which is the token cost of the rendered `ns_context` string injected into the worker's prompt.
+
+### Design
+
+Replace (or supplement) the variable-count check with a token-based measurement of the rendered `ns_context` string, using the same local `tiktoken` approach already used for budget checks elsewhere (see improvement #13's `count_tokens()`) rather than a live provider token-count API call. Warn — or, more strictly, truncate the namespace summary — when the rendered context exceeds a configurable threshold, independent of how many variables produced it.
 
 ---
 

@@ -51,3 +51,6 @@ build/
 
 # Docker jrelated files
 docker-build.sh
+
+# Encrypted-only docs: plaintext stays local, only the .gpg ciphertext is committed
+docs/thesis_angle.md
