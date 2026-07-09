@@ -77,6 +77,42 @@ needs a fresh plan and fresh execution, not a merge with the last turn's.
 
 ---
 
+## Cross-turn persistence: checkpointer, not store
+
+None of the above (`messages`, list-accumulating `query`/`answer`) survives between separate calls
+to `Agentic_system.run()` on its own. Today, `run()` builds a fresh `graph_init.compile()` with no
+checkpointer, and `state.py`'s reducers only govern how updates merge *within* one
+`graph.astream()` call. Once that call returns, the `State` object is gone — the next `run()` call
+starts from `{"query": [user_query]}` with everything else at field defaults. Reducers decide how
+history accumulates; a checkpointer decides whether there's anything to accumulate *onto*.
+
+LangGraph has two distinct persistence mechanisms and this is squarely the first one, not the
+second:
+
+- **Checkpointer**: snapshots the full graph state after every step, keyed by `thread_id`. This is
+  exactly "resume this one conversation where it left off" — what multi-turn chat needs.
+- **Store** (`BaseStore`): long-term memory shared *across* threads (e.g. a user's standing
+  preferences visible in every conversation they ever have). SPARQ has no cross-conversation memory
+  requirement right now — each conversation's history lives entirely in that conversation's own
+  `messages`/`query`/`answer` — so a `Store` isn't needed for this piece of work.
+
+Backend choice: start with `langgraph.checkpoint.memory.InMemorySaver` — sufficient for interactive
+CLI use and for the `Q_dataset` batch-eval runner (`experiments/00.py`), since both live for one
+process lifetime. It does **not** survive a process restart, so a real deployed chat surface (e.g.
+`web_ui_migration.md`) would need a persistent checkpointer (`SqliteSaver` or a Postgres-backed one)
+before conversations could outlive a server restart — noted here as a follow-up, not needed for the
+CLI/eval use case this doc is scoped to.
+
+`thread_id` also needs a source distinct from the existing `run_id`: `run_id` is regenerated fresh
+inside `run()` on every call today (`system.py:77`) and is used for per-run namespace cleanup
+(`cleanup_run(run_id)`) — it identifies one *turn's* execution, not the conversation. `thread_id`
+needs to be supplied by the caller and held constant across turns of the same conversation (e.g. the
+CLI keeps one `thread_id` for the life of a chat session; `experiments/00.py` would use one
+`thread_id` per top-level question so its `follow_ups` continue that thread, and a new `thread_id`
+per top-level question so unrelated questions don't share history).
+
+---
+
 ## Task list
 
 - [ ] `schemas/state.py`: `query`/`answer` → `Annotated[List[str], operator.add]`
@@ -89,12 +125,11 @@ needs a fresh plan and fresh execution, not a merge with the last turn's.
       shows the whole conversation instead of just the last exchange. Add a second output,
       `trace_summary.json`, via `state.model_dump(exclude={'messages'})`, so there's a readable
       trace without the verbose tool-call chatter alongside the full-fidelity `trace.json`.
-- [ ] `system.py` `Agentic_system.run()`: no cross-turn persistence exists yet.
-  - Compile the graph with a checkpointer (`InMemorySaver` to start)
-  - Accept/track a `thread_id`; pass via `config={"configurable": {"thread_id": ...}}` so
-    consecutive `run()` calls resume the same conversation
-  - `input_data` becomes `{"query": [user_query], "messages": [HumanMessage(content=user_query)]}`
-    (lists, since both fields use concatenating reducers now)
+- [ ] `system.py` `Agentic_system.run()`: wire up the checkpointer per "Cross-turn persistence"
+  above — compile with `InMemorySaver`, accept/track a `thread_id` distinct from `run_id`, pass it
+  via `config={"configurable": {"thread_id": ...}}`, and change `input_data` to
+  `{"query": [user_query], "messages": [HumanMessage(content=user_query)]}` (lists, since both
+  fields use concatenating reducers now)
 - [ ] Verify `executor_node` resets step-tracking state (`completed_plan_steps`, in-flight step IDs)
   correctly for a new turn — risk of turn-1 state leaking into turn-2's execution once the graph is
   checkpointed across turns instead of built fresh per call.
