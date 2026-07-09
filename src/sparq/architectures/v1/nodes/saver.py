@@ -9,7 +9,7 @@ def pydantic_encoder(obj):
     if isinstance(obj, BaseModel):
         return obj.model_dump(mode='json')
     
-    raise TypeError(f"Object of type {__obj.__class__.__name__} is not JSON serializable")
+    raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
 
 def saver_node(state: State, save_dir: Path):
     # save entire trace
@@ -19,7 +19,7 @@ def saver_node(state: State, save_dir: Path):
 
     # save only query and final answer
     keys = ['query', 'answer']
-    state_concise = {key:state[key] for key in keys if key in state}
+    state_concise = {key: getattr(state, key) for key in keys if hasattr(state, key)}
     save_path = save_dir / 'final_answer.json'
     with open(save_path, 'w') as file:
         json.dump(state_concise, file, indent=4, default=pydantic_encoder)
