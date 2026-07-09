@@ -5,6 +5,14 @@ be a chat application; `data/Q_dataset.json`'s `follow_ups` (conditional questio
 risk -> could you give me a social media blurb?") are one eval slice of that, not the ceiling —
 real usage should support arbitrary-depth conversations, not just one follow-up.
 
+**Estimated implementation time: 5-8 days**, for one contributor already familiar with this
+codebase — schema/reducer changes and the per-node `state.query`/`state.answer` indexing updates
+are mechanical (~1-2 days); checkpointer + `thread_id` wiring into `system.py` and verifying
+`executor_node`'s step-tracking resets cleanly across turns is the riskier middle chunk
+(~2-3 days, most likely to surprise); wiring prior-turn context into `router`/`planner` prompts and
+end-to-end testing against `Q_dataset.json`'s follow-ups is the remainder (~2-3 days). Assumes no
+major LangGraph API surprises.
+
 ---
 
 ## Background: the `MessagesState` mixin attempt
