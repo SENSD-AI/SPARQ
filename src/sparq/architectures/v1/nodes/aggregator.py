@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List
 
 import tiktoken
@@ -6,9 +7,10 @@ from sparq.schemas.state import State
 from sparq.schemas.output_schemas import StepResult
 from sparq.settings import LLMSetting
 from sparq.utils.get_llm import get_llm
+from sparq.tools.filesystemtools import filesystemtools
 
 from langchain_core.prompts import BasePromptTemplate, PromptTemplate
-from langchain_core.messages import BaseMessage
+from langchain.agents import create_agent
 
 # Used when llm_config.max_tokens is not set. LLMSetting has no per-model context
 # window field yet (see docs/improvements.md #13), so this is a conservative guess.
@@ -42,13 +44,11 @@ def truncate_results(results: List[StepResult], max_tokens: int) -> List[StepRes
     pass
 
 
-def aggregator_node(state: State, llm_config: LLMSetting, prompt: str):
+def aggregator_node(state: State, llm_config: LLMSetting, prompt: str, working_dir: Path):
     results: List[StepResult] = state.results
 
     if not results:
         return {'answer': '[AGGREGATOR]: There are no results to return'}
-
-    llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
 
     max_tokens = llm_config.max_tokens or DEFAULT_CONTEXT_WINDOW
     execution_results = format_results(results)
@@ -64,7 +64,16 @@ def aggregator_node(state: State, llm_config: LLMSetting, prompt: str):
 
     system_prompt_str: str = system_prompt_template.invoke(input={}).to_string()
 
-    print("[AGGREGATOR]: Got results. Writing final report...")
-    response: BaseMessage = llm.invoke(system_prompt_str)
+    llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
+    agent = create_agent(
+        model=llm,
+        name="aggregator",
+        tools=filesystemtools(working_dir=str(working_dir), selected_tools=['read_file', 'list_directory', 'file_search']),
+        system_prompt=system_prompt_str
+    )
 
-    return {'answer': response.content}
+    print("[AGGREGATOR]: Got results. Writing final report...")
+    response = agent.invoke({"messages": [{"role": "user", "content": "Write the final report now."}]})
+    answer: str = response["messages"][-1].content
+
+    return {'answer': answer}

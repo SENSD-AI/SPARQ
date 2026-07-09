@@ -42,7 +42,7 @@ class Agentic_system:
         self.router_node_partial = partial(router_node, llm_config=llm_config.router, prompt=self.system_prompts['router_prompt'])
         self.planner_node_partial = partial(planner_node, llm_config=llm_config.planner, sys_prompt=self.system_prompts['planner_prompt'])
         self.executor_node_partial = partial(executor_node, llm_config=llm_config.executor, worker_prompt=self.system_prompts['executor_prompt'], output_dir=run_dir / "executor")
-        self.aggregator_node_partial = partial(aggregator_node, llm_config=llm_config.aggregator, prompt=self.system_prompts['aggregator_prompt'])
+        self.aggregator_node_partial = partial(aggregator_node, llm_config=llm_config.aggregator, prompt=self.system_prompts['aggregator_prompt'], working_dir=run_dir / "executor")
         self.saver_node_partial = partial(saver_node, save_dir=run_dir)
     
     def _build_graph(self):
