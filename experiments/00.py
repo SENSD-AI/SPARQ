@@ -51,17 +51,21 @@ def load_data(file_path: str | Path) -> tuple[int, list[dict]]:
     return len(questions), questions
 
 def main():
-    n, questions = load_data(FILE_PATH)
+    # n, questions = load_data(FILE_PATH)
 
-    print("="*100)
-    print(f"Number of questions: {n}")
+    # print("="*100)
+    # print(f"Number of questions: {n}")
 
-    for i, q in enumerate(questions, 1):
-        print()
-        print(i, q['text'])
+    # for i, q in enumerate(questions, 1):
+    #     print()
+    #     print(i, q['text'])
 
-    print("="*100)
-    return
+    # print("="*100)
+    # return
+
+    # Make the root directory for results
+    results_dir = Path.cwd().resolve() / "00_results"
+    results_dir.mkdir(parents=True, exist_ok=True)
 
     if len(sys.argv) > 1:
         try:
@@ -75,10 +79,16 @@ def main():
 
     ENVSettings()
     
-    agentic_system = Agentic_system()
-    
     # Run system for all questions
-    for question in questions:
+    for i, question in enumerate(questions):
+        # Make output dir for current question
+        output_dir = results_dir / str(i)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        agentic_system = Agentic_system()
+        agentic_system.settings.paths.output_dir = output_dir # set the output dir
+        agentic_system.settings.paths.set_run_dir() # recompute run_dir from the new output_dir # type: ignore
+
         asyncio.run(agentic_system.run(question))
     
 if __name__ == "__main__":

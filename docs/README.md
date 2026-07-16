@@ -8,6 +8,7 @@
 - [multi_turn_support.md](multi_turn_support.md) — multi-turn chat support for `State` and the v1 graph
 - [parallel_execution.md](parallel_execution.md) — step dependency tracking and concurrent execution of plan steps (improvement #1)
 - [subtask_parallelism.md](subtask_parallelism.md) — sub-task parallelism within a worker via `async_subagent_tool` (improvement #16)
+- [weather_tool.md](weather_tool.md) — adding a weather-lookup tool; geocoding and date-granularity complexities across datasets
 - [why_not_deepagents.md](why_not_deepagents.md) — rationale for not adopting LangGraph's `deepagents` module
 
 ## Architecture — how existing subsystems work
