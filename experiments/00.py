@@ -8,10 +8,15 @@ uv run experiments/00.py k : Run SPARQ on first k questions
 
 import asyncio
 import sys
+import json
+
+from pathlib import Path
 
 from sparq.architectures.v1.system import Agentic_system
 from sparq.settings import ENVSettings
+from sparq.utils.get_package_dir import get_project_root
 
+FILE_PATH = get_project_root() / 'data' / 'Q_dataset.json'
 QUESTIONS = [
     # "What is the most common food vehicle associated with salmonella outbreaks?",
     # "Which county in AZ had the highest food insecurity rate in 2022?",
@@ -28,7 +33,36 @@ QUESTIONS = [
     "How different are the symptoms of various salmonella serotypes and which ones cause severe illnesses?",
 ]
 
+def load_data(file_path: str | Path) -> tuple[int, list[dict]]:
+    """
+    Args:
+        File path
+    Returns:
+        (Number of Entries, Entries as dict)
+    """
+
+    with open(file_path) as f:
+        data = json.load(f)
+
+    questions = data.get('questions', [])
+    if not questions:
+        raise ValueError(f"No questions found in {file_path}")
+    
+    return len(questions), questions
+
 def main():
+    n, questions = load_data(FILE_PATH)
+
+    print("="*100)
+    print(f"Number of questions: {n}")
+
+    for i, q in enumerate(questions, 1):
+        print()
+        print(i, q['text'])
+
+    print("="*100)
+    return
+
     if len(sys.argv) > 1:
         try:
             k = int(sys.argv[1])

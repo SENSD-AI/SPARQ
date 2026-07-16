@@ -1,6 +1,7 @@
 {
   "questions": [
     {
+      "id": 1,
       "text": "What is the current salmonella risk level in Boone county, and what actions should I take?",
       "grade": 4,
       "follow_ups": [
@@ -11,6 +12,7 @@
       ]
     },
     {
+      "id": 2,
       "text": "Is there a concerning pattern of salmonella occurrences or factors relevant to it that I should be aware of?",
       "grade": 5,
       "follow_ups": [
@@ -29,11 +31,13 @@
       ]
     },
     {
+      "id": 3,
       "text": "I am working on my plan of work for the upcoming year and trying to map out food safety trainings (for instance, I have three counties and would like to host trainings in each X amount of times a year). Are there any specific hotspots or specific locations that may be most beneficial for me to target?",
       "grade": 4,
       "follow_ups": []
     },
     {
+      "id": 4,
       "text": "Which specific demographic groups in our service area face the highest combined risk from food insecurity and Salmonella exposure?",
       "grade": 4,
       "follow_ups": [
@@ -44,20 +48,24 @@
       ]
     },
     {
-      "text": "Predict the likely impact (households, geography, etc.) of a food emergency such as avian\u2011influenza\u2011driven shortages.",
+      "id": 5,
+      "text": "Predict the likely impact (households, geography, etc.) of a food emergency such as avian‑influenza‑driven shortages.",
       "grade": 5,
       "follow_ups": []
     },
     {
+      "id": 6,
       "text": "Can you predict any potential food crises by geography based on current funding levels, legislation, or other exogenous factors?",
       "grade": 5,
       "follow_ups": []
     },
     {
+      "id": 7,
       "text": "Map out supply opportunities and routing for independent farms to food banking distribution points",
       "grade": -1
     },
     {
+      "id": 8,
       "text": "Are some serotypes more dangerous than others? Which ones cause the most outbreaks?",
       "grade": 3,
       "follow_ups": [
@@ -72,41 +80,49 @@
       ]
     },
     {
+      "id": 9,
       "text": "How different are the symptoms of various salmonella serotypes and which ones cause severe illnesses?",
       "grade": 3,
       "follow_ups": []
     },
     {
+      "id": 10,
       "text": "Which salmonella serotypes cause food poisoning and which ones cause typhoid fever?",
       "grade": 2,
       "follow_ups": []
     },
     {
+      "id": 11,
       "text": "What is the correlation of different salmonella serotypes with weather and storage conditions? Are there any seasonal trends",
       "grade": 3,
       "follow_ups": []
     },
     {
+      "id": 12,
       "text": "Which serotypes are associated with the human samples vs environmental samples?",
       "grade": 3,
       "follow_ups": []
     },
     {
+      "id": 13,
       "text": "Can you identify a climatic region in the USA that has the highest Salmonella rate, and what is its average temperature of that region?",
       "grade": 3,
       "follow_ups": []
     },
     {
+        "id": 14,
         "text": "What does SENS-D predict will be our biggest Salmonella risk over the next 10 weeks?",
         "grade": 5,
         "follow_ups": []
     },
     {
+        "id": 15,
         "text": "Is there a correlation between average temperature and Salmonella rates across the different U.S. climatic regions?",
         "grade": 2,
         "follow_ups": []
     },
     {
+        "id": 16,
         "text": "Which states are potential hotspots for Salmonella outbreaks and why?",
         "grade": 2,
         "follow_ups": [
@@ -117,22 +133,26 @@
         ]
     },
     {
+        "id": 17,
         "text": "Which Salmonella serotypes are more prevalent in states with high average temperatures and which in cooler states? Is there a trend of specific serotypes in areas with similar conditions?",
         "grade": 2,
         "follow_ups": []
     },
     {
+        "id": 18,
         "text": "How do you explain the distribution pattern of FSIS facilities, reported Salmonella case numbers, and temperature variations?",
         "grade": 3,
         "follow_ups": []
     },
     {
+        "id": 19,
         "text": "Is Salmonella present or absent in the sample?",
         "grade": 1,
         "follow_ups": []
     },
     {
-        "text": "What is the Salmonella level—accurate and repeatable quantification within a range of 1 to 1000 cfu/g with variation within 10 cfu?",
+        "id": 20,
+        "text": "What is the Salmonella level—accurate and repeatable quantification within a range of 1 to 1000 cfu/g with variation within 10 cfu?",
         "grade": 3,
         "follow_ups": []
     }
