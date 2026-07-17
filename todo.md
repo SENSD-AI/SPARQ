@@ -33,3 +33,30 @@ Design complete, see `docs/multi_turn_support.md`. Ordered by build dependency.
 - [ ] `executor.py`: adopt turn-scoped step keys; call seed/merge-back helpers at turn boundaries
 - [ ] `experiments/00.py`: one `thread_id` per top-level `Q_dataset.json` question, iterate `follow_ups` within it
 - [ ] Tests: namespace path durability across restart, `messages` accumulation across two `run()` calls, router classification (recall vs. new-computation), end-to-end follow-up against `Q_dataset.json`
+
+# Ablation Study Support (system.py node toggles)
+- [ ] `_build_graph()`: wire router on/off and aggregator on/off independently (simple bypass — router off forces route=True; aggregator off is already safe since `aggregator_node` returns a placeholder on empty `results`)
+- [ ] `_build_graph()`: planner/executor are coupled, not independent — only 3 valid states (both on / planner off / executor off); raise a clear error on "both off" (nothing would run)
+- [ ] New node `executor_self_planning_node` (+ new prompt) — used when planner is off; executor plans its own steps instead of consuming `state.plan`
+- [ ] New node `planner_and_executor_node` (+ new prompt) — used when executor is off; planner executes as it plans instead of just emitting a `Plan`
+- [ ] Make `planner_node()`/`executor_node()` dispatchers: always wire both under the same node names regardless of ablation config, each checking config internally to pick default/self-planning/self-executing/no-op behavior (keeps graph shape identical across arms for LangSmith trace comparability); no-op path returns `{}` (passthrough) when a node's job was absorbed by its neighbor
+- [ ] `_load_prompts()`: support a per-node prompt override (the `roles` ablation dimension) via a dict lookup instead of always loading the fixed `*_message.txt` files
+
+# Concurrency Safety (experiments/00.py batch runs)
+- [x] `package_manager.py`: class-level `threading.Lock` around `install_package`'s check-then-install section — fixes a race when two concurrent questions hit a missing package at the same time (tool calls run in `run_in_executor`'s thread pool under `agent.ainvoke()`, confirmed via `langchain_core/tools/base.py`)
+- [ ] `experiments/00.py`: cap concurrent questions with `asyncio.Semaphore(N)` wrapping each `agentic_system.run(question)` call before `asyncio.gather`
+
+# Logging (replace `print()` for concurrent batch runs)
+- [ ] Replace `print()`/`rich.print()` calls (37 across 13 files incl. `executor.py`, `aggregator.py`, `planner.py`, `system.py`, `package_manager.py`) with `logging` — concurrent runs interleave stdout unreadably, and `contextlib.redirect_stdout` doesn't scope safely across concurrent asyncio tasks (single global `sys.stdout`)
+- [ ] Tag each run with `run_id` via a `contextvars.ContextVar` set at the top of `Agentic_system.run()`
+- [ ] Attach a per-run `logging.FileHandler` writing into that run's `output_dir` (already created per-question in `00.py`) instead of stdout
+- [ ] `system.py`: replace `print(chunk)` in the `astream` loop with `logger.info(chunk)` so per-node stream updates append to the run's log file in real time
+
+# Eval Pipeline (gold-standard human review)
+- [ ] Curate/refine gold query set (start from the 11 in `experiments/00.py`; get domain-expert input on representativeness)
+- [ ] Build a blinded, position-randomized pairwise comparison review tool (Streamlit/Gradio) — reviewer picks a winner between two `final_answer.json`s for the same query; no auth/infra needed; works for both domain experts and lab members
+- [ ] Define `GoldQuery` (id, query, difficulty) and `RunRecord` (run_id, query_id, ablation_config, response, token_out, models, cost, timing, sparq_judge_score, sparq_judge_review) Pydantic types in `schemas/eval_schemas.py`
+- [ ] `AblationConfig` type: `nodes: Dict[str,str]` + `roles: Dict[str,str]` (free-form values — 'yes'/'no' toggle or a variant/prompt-reference label)
+- [ ] Store pairwise comparisons as `(query_id, run_id_a, run_id_b, winner, reviewer_id, reason, timestamp)`; aggregate via win-rate or Bradley-Terry per config pair (not raw counts)
+- [ ] Double-review a subset of pairs (domain expert + lab member, or two domain experts) to report inter-rater agreement
+- [ ] Automated `sparq_judge_score`/`sparq_judge_review` (LLM-judge) as a separate, cheaper-to-scale signal — validate it against human pairwise win-rates before trusting it alone
