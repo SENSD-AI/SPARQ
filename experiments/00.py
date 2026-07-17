@@ -50,7 +50,7 @@ def load_data(file_path: str | Path) -> tuple[int, list[dict]]:
     
     return len(questions), questions
 
-def main():
+async def main():
     # n, questions = load_data(FILE_PATH)
 
     # print("="*100)
@@ -79,7 +79,8 @@ def main():
 
     ENVSettings()
     
-    # Run system for all questions
+    # Create tasks
+    tasks = []
     for i, question in enumerate(questions):
         # Make output dir for current question
         output_dir = results_dir / str(i)
@@ -89,7 +90,12 @@ def main():
         agentic_system.settings.paths.output_dir = output_dir # set the output dir
         agentic_system.settings.paths.set_run_dir() # recompute run_dir from the new output_dir # type: ignore
 
-        asyncio.run(agentic_system.run(question))
+        # asyncio.run(agentic_system.run(question))
+        tasks.append(agentic_system.run(question))
+    
+    # Get batch results (If anything is printed from the task, stdout will be polluted)
+    await asyncio.gather(*tasks)
+
     
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
