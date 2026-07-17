@@ -6,10 +6,12 @@ import subprocess
 import sys
 from typing import Optional
 import tomllib
+from threading import Lock
 
 
 class PackageManager:
     """Manages package installation and whitelisting for safe code execution."""
+    lock = Lock()
 
     _config = None
 
@@ -129,32 +131,33 @@ class PackageManager:
                 "message": f"Package '{package_name}' is not whitelisted for installation.",
             }
 
-        if cls.is_installed(package_name):
-            print(f"Package '{package_name}' is already installed.")
-            return {
-                "success": True,
-                "message": f"Package '{package_name}' is already installed.",
-            }
+        with cls.lock:
+            if cls.is_installed(package_name):
+                print(f"Package '{package_name}' is already installed.")
+                return {
+                    "success": True,
+                    "message": f"Package '{package_name}' is already installed.",
+                }
 
-        try:
-            cmd = cls._get_pip_command() + ["install", package_name]
-            subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            return {
-                "success": True,
-                "message": f"Package '{package_name}' installed successfully.",
-            }
-        except subprocess.CalledProcessError as e:
-            error_detail = e.stderr.strip() if e.stderr else str(e)
-            print(f"Failed to install package '{package_name}': {error_detail}")
-            return {
-                "success": False,
-                "message": f"Failed to install package '{package_name}': {error_detail}",
-            }
+            try:
+                cmd = cls._get_pip_command() + ["install", package_name]
+                subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                return {
+                    "success": True,
+                    "message": f"Package '{package_name}' installed successfully.",
+                }
+            except subprocess.CalledProcessError as e:
+                error_detail = e.stderr.strip() if e.stderr else str(e)
+                print(f"Failed to install package '{package_name}': {error_detail}")
+                return {
+                    "success": False,
+                    "message": f"Failed to install package '{package_name}': {error_detail}",
+                }
 
     @classmethod
     def uninstall_package(cls, package_name: str) -> dict:

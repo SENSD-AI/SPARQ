@@ -87,6 +87,7 @@ def execute_code(code: str, ns_path: str | None = None, timeout: int = 2*60) -> 
     result = _execute_code_in_new_process(code, timeout=timeout, ns_path=ns_path, result_path=result_path)
 
     # On import error, install the package if whitelisted and retry execution
+    # TODO: Make max_retries a global if possible
     max_retries = 5
     retries = 0
     while result.error and result.error.type in ("ModuleNotFoundError", "ImportError") and retries < max_retries:
