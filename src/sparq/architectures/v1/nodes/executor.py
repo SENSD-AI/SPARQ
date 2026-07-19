@@ -153,11 +153,11 @@ async def executor_node(state: State, config: RunnableConfig, llm_config: LLMSet
                 else:
                     attempt_counts[result.id] = attempt_counts.get(result.id, 0) + 1
                     if attempt_counts[result.id] >= MAX_RETRY:
-                        logger.warning(f"Step {result.id} failed after {attempt_counts[result.id]} retries - accepting as terminal failure.")
+                        logger.warning(f"Step {result.id} failed after {attempt_counts[result.id]} retries - accepting as terminal failure. Reason: {result.misc or result.execution_results or '(none given)'}")
                         completed.add(result.id)
                         all_results.append(result)
                     else:
-                        logger.warning(f"Step {result.id} failed (attempt {attempt_counts[result.id]}/{MAX_RETRY}), retrying...")
+                        logger.warning(f"Step {result.id} failed (attempt {attempt_counts[result.id]}/{MAX_RETRY}), retrying... Reason: {result.misc or result.execution_results or '(none given)'}")
 
             # Keep `state` in sync so the next batch's get_results_of_dependent_steps sees this round's results.
             state = state.model_copy(update={"completed_plan_steps": list(completed), "results": all_results})
