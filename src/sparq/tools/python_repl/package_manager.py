@@ -8,6 +8,8 @@ from typing import Optional
 import tomllib
 from threading import Lock
 
+from sparq.logging_config import logger
+
 
 class PackageManager:
     """Manages package installation and whitelisting for safe code execution."""
@@ -79,7 +81,7 @@ class PackageManager:
                 }
                 return cls._config
         except Exception as e:
-            print(f"Error loading package config: {e}. \nUsing default package list.\n")
+            logger.error(f"Error loading package config: {e}. Using default package list.")
             cls._config = cls.DEFAULT_PACKAGE_LIST
             return cls._config
 
@@ -125,7 +127,7 @@ class PackageManager:
         :rtype: dict
         """
         if not cls.is_whitelisted(package_name):
-            print(f"Package '{package_name}' is not whitelisted for installation.")
+            logger.warning(f"Package '{package_name}' is not whitelisted for installation.")
             return {
                 "success": False,
                 "message": f"Package '{package_name}' is not whitelisted for installation.",
@@ -133,7 +135,7 @@ class PackageManager:
 
         with cls.lock:
             if cls.is_installed(package_name):
-                print(f"Package '{package_name}' is already installed.")
+                logger.debug(f"Package '{package_name}' is already installed.")
                 return {
                     "success": True,
                     "message": f"Package '{package_name}' is already installed.",
@@ -153,7 +155,7 @@ class PackageManager:
                 }
             except subprocess.CalledProcessError as e:
                 error_detail = e.stderr.strip() if e.stderr else str(e)
-                print(f"Failed to install package '{package_name}': {error_detail}")
+                logger.error(f"Failed to install package '{package_name}': {error_detail}")
                 return {
                     "success": False,
                     "message": f"Failed to install package '{package_name}': {error_detail}",

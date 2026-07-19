@@ -9,6 +9,7 @@ from sparq.settings import (
 ) 
 from sparq.architectures.v1.settings import V1Settings
 from sparq.utils.get_llm import get_llm
+from sparq.logging_config import logger
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 
@@ -19,25 +20,26 @@ def planner_node(state: State, llm_config: LLMSetting, sys_prompt: str):
     Returns:
         dict: A dictionary containing the generated plan and data context.
     """
-    print("[Planner]: Making a plan to answer your query")
+    with logger.contextualize(node="planner"):
+        logger.info("Making a plan to answer your query")
 
-    llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
+        llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
 
-    # load data context
-    data_context = load_data_context(DATA_MANIFEST_PATH, DATA_SUMMARIES_SHORT_PATH)
+        # load data context
+        data_context = load_data_context(DATA_MANIFEST_PATH, DATA_SUMMARIES_SHORT_PATH)
 
-    # create system prompt
-    system_prompt_template: BasePromptTemplate = PromptTemplate.from_template(sys_prompt).partial(
-        data_context=str(data_context),
-    )
-    _system_prompt: str = system_prompt_template.invoke(input={}).to_string()
-    system_prompt: SystemMessage = SystemMessage(content=_system_prompt)
+        # create system prompt
+        system_prompt_template: BasePromptTemplate = PromptTemplate.from_template(sys_prompt).partial(
+            data_context=str(data_context),
+        )
+        _system_prompt: str = system_prompt_template.invoke(input={}).to_string()
+        system_prompt: SystemMessage = SystemMessage(content=_system_prompt)
 
-    structured_llm = llm.with_structured_output(Plan)
-    plan = structured_llm.invoke([system_prompt, HumanMessage(content=state.query)])
+        structured_llm = llm.with_structured_output(Plan)
+        plan = structured_llm.invoke([system_prompt, HumanMessage(content=state.query)])
 
-    print("Created plan")
-    return {'plan': plan, 'data_context': data_context}
+        logger.info("Created plan")
+        return {'plan': plan, 'data_context': data_context}
 
 def test_planner():
     print("Running test code for planner.py")

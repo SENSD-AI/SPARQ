@@ -7,6 +7,7 @@ from sparq.schemas.output_schemas import Plan, Step, StepResult
 from sparq.settings import LLMSetting
 from sparq.utils import helpers
 from sparq.utils.get_llm import get_llm
+from sparq.logging_config import logger
 from sparq.tools.python_repl.python_repl_tool import make_python_repl_tool
 from sparq.tools.python_repl.namespace import get_ns_path, load_ns, save_ns
 from sparq.tools.filesystemtools import filesystemtools
@@ -17,8 +18,6 @@ from langchain_core.messages import SystemMessage
 from langchain_core.runnables.config import RunnableConfig
 from langchain.agents import create_agent
 from langchain.agents.middleware import TodoListMiddleware
-
-import rich
 
 MAX_NAMESPACE_VARS_WARNING = 30
 MAX_RETRY = 3
@@ -97,84 +96,85 @@ async def executor_node(state: State, config: RunnableConfig, llm_config: LLMSet
         worker_prompt: System prompt for a worker agent.
         output_dir: Directory where executor outputs (plots, files) are written.
     """
-    print("[SPARQ] Executing plan to answer your query...")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    run_id = config.get('configurable', {}).get('run_id', 'default')
+    with logger.contextualize(node="executor"):
+        logger.info("Executing plan to answer your query...")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        run_id = config.get('configurable', {}).get('run_id', 'default')
 
-    plan = state.plan
-    completed = set() # Why a set instead of a list? -> Downstream checking for completed steps is faster on a set than a list
-    all_results: List[StepResult] = []
-    attempt_counts: dict[int, int] = {} # Tracking the attempt counts for each step
+        plan = state.plan
+        completed = set() # Why a set instead of a list? -> Downstream checking for completed steps is faster on a set than a list
+        all_results: List[StepResult] = []
+        attempt_counts: dict[int, int] = {} # Tracking the attempt counts for each step
 
-    while len(completed) < len(plan.steps):
-        # Stage 1: Add steps that are ready to be executed to a list
-        ready_steps: List[Step] = []
+        while len(completed) < len(plan.steps):
+            # Stage 1: Add steps that are ready to be executed to a list
+            ready_steps: List[Step] = []
 
-        for step in plan.steps:
-            if step.id in completed:
-                continue
+            for step in plan.steps:
+                if step.id in completed:
+                    continue
 
-            # Check if step has deps. If yes, then check if they have been completed. If no, then append step to ready_steps
-            if step.dependencies:
-                # Check if dependencies are completed
-                if all(dep in completed for dep in step.dependencies):
+                # Check if step has deps. If yes, then check if they have been completed. If no, then append step to ready_steps
+                if step.dependencies:
+                    # Check if dependencies are completed
+                    if all(dep in completed for dep in step.dependencies):
+                        ready_steps.append(step)
+                else:
                     ready_steps.append(step)
-            else:
-                ready_steps.append(step)
 
-        if not ready_steps:
-            raise ValueError("Deadlock detected in executor node: Unresolved dependencies remain.")
+            if not ready_steps:
+                raise ValueError("Deadlock detected in executor node: Unresolved dependencies remain.")
 
-        print(f"[Executor Node] Spawning {len(ready_steps)} parallel worker agents...")
+            logger.info(f"Spawning {len(ready_steps)} parallel worker agents...")
 
-        # Step 2: Execute the steps that are ready
-        tasks = []
-        for step in ready_steps:
-            dependency_results: List[StepResult] = get_results_of_dependent_steps(step, state)
-            tasks.append(
-                execute_single_step_worker(
-                    step=step,
-                    run_id=run_id,
-                    llm_config=llm_config,
-                    prompt=worker_prompt,
-                    dependency_results=dependency_results,
-                    state=state,
-                    output_dir=output_dir
+            # Step 2: Execute the steps that are ready
+            tasks = []
+            for step in ready_steps:
+                dependency_results: List[StepResult] = get_results_of_dependent_steps(step, state)
+                tasks.append(
+                    execute_single_step_worker(
+                        step=step,
+                        run_id=run_id,
+                        llm_config=llm_config,
+                        prompt=worker_prompt,
+                        dependency_results=dependency_results,
+                        state=state,
+                        output_dir=output_dir
+                    )
                 )
-            )
 
-        # Step 3: Track steps that were completed successfully and return them
-        batch_results: List[StepResult] = await asyncio.gather(*tasks)
+            # Step 3: Track steps that were completed successfully and return them
+            batch_results: List[StepResult] = await asyncio.gather(*tasks)
 
-        for result in batch_results:
-            if result.success:
-                completed.add(result.id)
-                all_results.append(result)
-            else:
-                attempt_counts[result.id] = attempt_counts.get(result.id, 0) + 1
-                if attempt_counts[result.id] >= MAX_RETRY:
-                    rich.print(f"[red]WARNING: Step {result.id} failed after {attempt_counts[result.id]} retries - accepting as terminal failure. [/red]")
+            for result in batch_results:
+                if result.success:
                     completed.add(result.id)
                     all_results.append(result)
                 else:
-                    rich.print(f"[yellow]Step {result.id} failed (attempt {attempt_counts[result.id]}/{MAX_RETRY}), retrying...[/yellow]")
+                    attempt_counts[result.id] = attempt_counts.get(result.id, 0) + 1
+                    if attempt_counts[result.id] >= MAX_RETRY:
+                        logger.warning(f"Step {result.id} failed after {attempt_counts[result.id]} retries - accepting as terminal failure.")
+                        completed.add(result.id)
+                        all_results.append(result)
+                    else:
+                        logger.warning(f"Step {result.id} failed (attempt {attempt_counts[result.id]}/{MAX_RETRY}), retrying...")
 
-        # Keep `state` in sync so the next batch's get_results_of_dependent_steps sees this round's results.
-        state = state.model_copy(update={"completed_plan_steps": list(completed), "results": all_results})
+            # Keep `state` in sync so the next batch's get_results_of_dependent_steps sees this round's results.
+            state = state.model_copy(update={"completed_plan_steps": list(completed), "results": all_results})
 
-    return {"completed_plan_steps": list(completed), "results": all_results}
+        return {"completed_plan_steps": list(completed), "results": all_results}
 
 
 async def execute_single_step_worker(step: Step, run_id: str, llm_config: LLMSetting, prompt: str, dependency_results: List[StepResult], state: State, output_dir: Path) -> StepResult:
     """An isolated worker instance spawned for an individual plan step"""
-    print(f"[Worker Agent] starting step {step.id}: {step.step_description}")
+    logger.info(f"[Worker Agent] starting step {step.id}: {step.step_description}")
 
     # Get namespace for worker, seeded with the merged namespaces of its dependencies
     step_ns_id = f"{run_id}_step_{step.id}"
     worker_ns: str = get_ns_path(step_ns_id)
     num_vars, ns_context = merge_namespaces_of_previous_deps(step, run_id)
     if num_vars > MAX_NAMESPACE_VARS_WARNING:
-        rich.print(f"[red]WARNING: [Worker Agent] step {step.id}: {num_vars} variables inherited from dependencies, exceeds {MAX_NAMESPACE_VARS_WARNING} — risk of context bloat.[/red]")
+        logger.warning(f"[Worker Agent] step {step.id}: {num_vars} variables inherited from dependencies, exceeds {MAX_NAMESPACE_VARS_WARNING} — risk of context bloat.")
 
     # Create Deep Agent
     llm_object = get_llm(llm_config.model_name, llm_config.provider)
@@ -216,7 +216,7 @@ async def execute_single_step_worker(step: Step, run_id: str, llm_config: LLMSet
     result.id = step.id
     result.step = step.step_description
 
-    print(f"[Worker Agent] completed step {step.id}: {step.step_description}")
+    logger.info(f"[Worker Agent] completed step {step.id}: {step.step_description}")
     return result
 
 

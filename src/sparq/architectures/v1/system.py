@@ -13,11 +13,11 @@ from sparq.architectures.v1.nodes.saver import saver_node
 from sparq.schemas.state import State
 from sparq.utils.helpers import load_text
 from sparq.tools.python_repl.namespace import cleanup_run
+from sparq.logging_config import logger, run_log_context
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import RetryPolicy
 import pydantic_core
-from rich import print
 
 class Agentic_system:
     def __init__(self, verbose: bool = False):
@@ -49,7 +49,7 @@ class Agentic_system:
         graph_init = StateGraph(state_schema=State)
         graph_init.add_node("router", self.router_node_partial)
         graph_init.add_node(
-            "planner", 
+            "planner",
             self.planner_node_partial,
             retry=RetryPolicy(
                 max_attempts=5,
@@ -75,15 +75,17 @@ class Agentic_system:
 
         # Generate a run ID
         run_id = str(uuid.uuid4())
+        run_dir = self.settings.paths.run_dir
 
         input_data = {"query": user_query} # This will go into the State schema expected by the graph
-        try:
-            async for chunk in self.graph.astream(input=input_data, 
-                                                config={"configurable": {"run_id": run_id}},
-                                                stream_mode="updates"):
-                print(chunk)
-        finally:
-            cleanup_run(run_id)
+        with run_log_context(run_dir, run_id):
+            try:
+                async for chunk in self.graph.astream(input=input_data,
+                                                    config={"configurable": {"run_id": run_id}},
+                                                    stream_mode="updates"):
+                    logger.info(chunk)
+            finally:
+                cleanup_run(run_id)
 
     def save_results(self):
         pass
