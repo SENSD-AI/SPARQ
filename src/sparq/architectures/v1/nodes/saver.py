@@ -1,24 +1,13 @@
-from pydantic import BaseModel
 from sparq.schemas.output_schemas import Plan
 from sparq.schemas.state import State
 from sparq.logging_config import logger
+from sparq.utils.helpers import pydantic_encoder
 
 import json
 from pathlib import Path
 
-def pydantic_encoder(obj):
-    if isinstance(obj, BaseModel):
-        return obj.model_dump(mode='json')
-
-    raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
-
 def saver_node(state: State, save_dir: Path):
     with logger.contextualize(node="saver"):
-        # save entire trace
-        save_path = save_dir / 'trace.json'
-        with open(save_path, 'w') as file:
-            json.dump(state, file, indent=4, default=pydantic_encoder)
-
         # save only query and final answer
         keys = ['query', 'answer']
         state_concise = {key: getattr(state, key) for key in keys if hasattr(state, key)}

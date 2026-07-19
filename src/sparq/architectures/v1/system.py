@@ -11,7 +11,7 @@ from sparq.architectures.v1.nodes.router import router_func, router_node
 from sparq.architectures.v1.nodes.aggregator import aggregator_node
 from sparq.architectures.v1.nodes.saver import saver_node
 from sparq.schemas.state import State
-from sparq.utils.helpers import load_text
+from sparq.utils.helpers import load_text, write_trace
 from sparq.tools.python_repl.namespace import cleanup_run
 from sparq.logging_config import logger, run_log_context
 
@@ -80,10 +80,11 @@ class Agentic_system:
         input_data = {"query": user_query} # This will go into the State schema expected by the graph
         with run_log_context(run_dir, run_id):
             try:
-                async for chunk in self.graph.astream(input=input_data,
+                async for state_values in self.graph.astream(input=input_data,
                                                     config={"configurable": {"run_id": run_id}},
-                                                    stream_mode="updates"):
-                    logger.debug(chunk)
+                                                    stream_mode="values"):
+                    logger.debug(state_values)
+                    write_trace(run_dir, state_values)
             finally:
                 cleanup_run(run_id)
 

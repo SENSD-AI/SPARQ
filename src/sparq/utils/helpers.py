@@ -6,6 +6,28 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 
+def pydantic_encoder(obj):
+    from pydantic import BaseModel
+
+    if isinstance(obj, BaseModel):
+        return obj.model_dump(mode='json')
+
+    raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
+
+
+def write_trace(save_dir: Path, state) -> None:
+    """
+    Write the current state to trace.json, overwriting any previous snapshot.
+
+    Called after every node completes (see Agentic_system.run()'s astream loop with
+    stream_mode="values"), not just at the end — so trace.json reflects the most
+    recent completed node even if the run dies before reaching saver_node.
+    """
+    save_path = save_dir / 'trace.json'
+    with open(save_path, 'w') as file:
+        json.dump(state, file, indent=4, default=pydantic_encoder)
+
+
 def load_text(file_path):
     """Loads text from a file."""
     with open(file_path, 'r') as f:
