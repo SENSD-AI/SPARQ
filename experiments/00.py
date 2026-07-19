@@ -69,8 +69,9 @@ async def main():
     # print("="*100)
     # return
 
-    # Make the root directory for results
-    results_dir = Path.cwd().resolve() / "00_results"
+    # Make the root directory for results (one subdirectory per experiment script,
+    # e.g. experiments/results/00_results/ for this file, 01_results/ for the next)
+    results_dir = Path(__file__).parent / "results" / f"{Path(__file__).stem}_results"
     results_dir.mkdir(parents=True, exist_ok=True)
 
     if len(sys.argv) > 1:

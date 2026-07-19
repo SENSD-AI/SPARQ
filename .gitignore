@@ -28,6 +28,9 @@ selected_data/
 !src/sparq/data/
 !src/sparq/data/*
 
+# Result directories
+experiments/results/**
+
 # Model files
 models/
 *.h5
