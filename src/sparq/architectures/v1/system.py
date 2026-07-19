@@ -83,7 +83,7 @@ class Agentic_system:
                 async for chunk in self.graph.astream(input=input_data,
                                                     config={"configurable": {"run_id": run_id}},
                                                     stream_mode="updates"):
-                    logger.info(chunk)
+                    logger.debug(chunk)
             finally:
                 cleanup_run(run_id)
 

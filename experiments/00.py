@@ -16,6 +16,8 @@ from sparq.architectures.v1.system import Agentic_system
 from sparq.settings import ENVSettings
 from sparq.utils.get_package_dir import get_project_root
 
+MAX_CONCURRENT_RUNS = 3
+
 FILE_PATH = get_project_root() / 'data' / 'Q_dataset.json'
 QUESTIONS = [
     # "What is the most common food vehicle associated with salmonella outbreaks?",
@@ -50,6 +52,10 @@ def load_data(file_path: str | Path) -> tuple[int, list[dict]]:
     
     return len(questions), questions
 
+async def run_bounded(semaphore: asyncio.Semaphore, agentic_system: Agentic_system, question: str):
+    async with semaphore:
+        await agentic_system.run(question)
+
 async def main():
     # n, questions = load_data(FILE_PATH)
 
@@ -78,7 +84,9 @@ async def main():
         questions = QUESTIONS
 
     ENVSettings()
-    
+
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_RUNS)
+
     # Create tasks
     tasks = []
     for i, question in enumerate(questions):
@@ -90,10 +98,9 @@ async def main():
         agentic_system.settings.paths.output_dir = output_dir # set the output dir
         agentic_system.settings.paths.set_run_dir() # recompute run_dir from the new output_dir # type: ignore
 
-        # asyncio.run(agentic_system.run(question))
-        tasks.append(agentic_system.run(question))
-    
-    # Get batch results (If anything is printed from the task, stdout will be polluted)
+        tasks.append(run_bounded(semaphore, agentic_system, question))
+
+    # Get batch results (at most MAX_CONCURRENT_RUNS running at once)
     await asyncio.gather(*tasks)
 
     

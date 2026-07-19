@@ -44,13 +44,16 @@ Design complete, see `docs/multi_turn_support.md`. Ordered by build dependency.
 
 # Concurrency Safety (experiments/00.py batch runs)
 - [x] `package_manager.py`: class-level `threading.Lock` around `install_package`'s check-then-install section — fixes a race when two concurrent questions hit a missing package at the same time (tool calls run in `run_in_executor`'s thread pool under `agent.ainvoke()`, confirmed via `langchain_core/tools/base.py`)
-- [ ] `experiments/00.py`: cap concurrent questions with `asyncio.Semaphore(N)` wrapping each `agentic_system.run(question)` call before `asyncio.gather`
+- [x] `experiments/00.py`: cap concurrent questions with `asyncio.Semaphore(MAX_CONCURRENT_RUNS)` via a `run_bounded()` wrapper around each `agentic_system.run(question)` call before `asyncio.gather`
 
 # Logging (replace `print()` for concurrent batch runs)
-- [ ] Replace `print()`/`rich.print()` calls (37 across 13 files incl. `executor.py`, `aggregator.py`, `planner.py`, `system.py`, `package_manager.py`) with `logging` — concurrent runs interleave stdout unreadably, and `contextlib.redirect_stdout` doesn't scope safely across concurrent asyncio tasks (single global `sys.stdout`)
-- [ ] Tag each run with `run_id` via a `contextvars.ContextVar` set at the top of `Agentic_system.run()`
-- [ ] Attach a per-run `logging.FileHandler` writing into that run's `output_dir` (already created per-question in `00.py`) instead of stdout
-- [ ] `system.py`: replace `print(chunk)` in the `astream` loop with `logger.info(chunk)` so per-node stream updates append to the run's log file in real time
+Superseded the original stdlib-`logging`/`contextvars.ContextVar`/`FileHandler` plan below with loguru instead — same goals, different mechanism (`logger.contextualize()` instead of a manual `ContextVar`; `logger.add(sink, filter=...)` instead of a `FileHandler`).
+- [x] Replace runtime-path `print()`/`rich.print()` calls in `executor.py`, `aggregator.py`, `planner.py`, `system.py`, `package_manager.py` with loguru `logger` calls (dev-only `test_*`/`__main__` blocks intentionally left as `print()`; CLI/setup scripts — `settings.py`, `setup.py`, `download_data.py`, `helpers.py`'s table display — intentionally untouched, not part of the concurrent-run interleaving problem)
+- [x] Tag each run with `run_id` via `logger.contextualize(run_id=...)` in `run_log_context()` (`logging_config.py`), entered at the top of `Agentic_system.run()`
+- [x] Tag each node's logs with `node=<name>` via `logger.contextualize(node=...)` inside each node function body (`router_node`, `planner_node`, `executor_node`, `aggregator_node`, `saver_node`)
+- [x] Attach a per-run loguru file sink (`run_dir/log.txt`, filtered by `run_id`) instead of stdout, added/removed by `run_log_context()`
+- [x] `system.py`: astream loop logs each chunk via `logger.debug(chunk)` (kept off console — INFO — since it's a raw per-node state dump, redundant with the human-readable progress lines nodes already log at INFO)
+- [ ] Known gap, left out of scope: `tools/python_repl/executor.py`'s `_target` (the `multiprocessing.spawn`'d code-execution subprocess) still has one bare `print()` on a rare failure path (writing the result file) — `contextualize()` can't cross a real process boundary, so it doesn't get run/node tagging or file routing
 
 # Eval Pipeline (gold-standard human review)
 - [ ] Curate/refine gold query set (start from the 11 in `experiments/00.py`; get domain-expert input on representativeness)
