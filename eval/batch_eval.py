@@ -74,6 +74,7 @@ async def main():
     results_dir = Path(__file__).parent / "results" / f"{Path(__file__).stem}_results"
     results_dir.mkdir(parents=True, exist_ok=True)
 
+    # Extract k. k defines number of questions to run eval on.
     if len(sys.argv) > 1:
         try:
             k = int(sys.argv[1])
