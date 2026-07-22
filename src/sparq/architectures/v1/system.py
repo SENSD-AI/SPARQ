@@ -69,12 +69,14 @@ class Agentic_system:
         
         self.graph = graph_init.compile()
 
-    async def run(self, user_query: str):
+    async def run(self, user_query: str, run_id: str | None = None):
         self._get_node_definitions()
         self._build_graph()
 
-        # Generate a run ID
-        run_id = str(uuid.uuid4())
+        # Generate a run ID if not given
+        if not run_id:
+            run_id = str(uuid.uuid4())
+
         run_dir = self.settings.paths.run_dir
 
         input_data = {"query": user_query} # This will go into the State schema expected by the graph
