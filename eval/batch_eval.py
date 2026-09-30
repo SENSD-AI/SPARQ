@@ -77,6 +77,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("-n", "--n_questions", type=positive_int, default=1)
     parser.add_argument("-k", "--iterations", type=positive_int, default=1)
+    parser.add_argument(
+        "--evaluation-id",
+        help="Shared identifier grouping batches from separate invocations into one evaluation",
+    )
     return parser.parse_args()
 
 
@@ -294,6 +298,7 @@ async def execute_run(
                     difficulty=question["grade"],
                     evaluation_context=EvaluationContext(
                         batch_id=batch.batch_id,
+                        evaluation_id=batch.evaluation_id,
                         question_id=question["id"],
                         iteration=run_entry.iteration,
                     ),
@@ -358,6 +363,8 @@ async def execute_batch(
         write_json_atomic(batch_dir / "questions.json", {"questions": questions})
         persist_manifest(batch, manifest_path)
         print(f"Batch {batch.batch_id}: {batch.planned_runs} runs")
+        if batch.evaluation_id is not None:
+            print(f"Evaluation: {batch.evaluation_id}")
         print(f"Manifest: {manifest_path}")
         for _, entries in groupby(batch.runs, key=lambda entry: entry.iteration):
             # Runs within an iteration may overlap; gather forms the barrier
@@ -389,6 +396,7 @@ def create_batch(
     requested_question_count: int,
     iterations: int,
     configuration: dict,
+    evaluation_id: str | None = None,
 ) -> tuple[BatchEvalOutput, Path]:
     """Build a batch manifest and its planned run entries.
 
@@ -398,6 +406,7 @@ def create_batch(
             the manifest even when fewer questions are eligible.
         iterations: Number of evaluations to plan per question.
         configuration: Model configuration snapshot stored in the manifest.
+        evaluation_id: Shared identifier for batches belonging to one evaluation.
 
     Returns:
         The initialized batch manifest and its output directory path.
@@ -430,6 +439,7 @@ def create_batch(
 
     batch = BatchEvalOutput(
         batch_id=batch_id,
+        evaluation_id=evaluation_id,
         time_started=started_at,
         dataset_path=FILE_PATH.relative_to(PROJECT_ROOT),
         dataset_hash=hash_file(FILE_PATH),
@@ -462,6 +472,7 @@ async def main() -> int:
         requested_question_count=args.n_questions,
         iterations=args.iterations,
         configuration={"models": settings.llm_config.model_dump(mode="json")},
+        evaluation_id=args.evaluation_id,
     )
     await execute_batch(batch, batch_dir, questions, settings)
     print(

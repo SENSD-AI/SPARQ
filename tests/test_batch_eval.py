@@ -9,7 +9,7 @@ from typing import cast
 from unittest.mock import AsyncMock, patch
 
 from eval.batch_eval import (
-    Question, execute_batch, execute_run, load_questions, main, persist_manifest,
+    Question, create_batch, execute_batch, execute_run, load_questions, main, parse_args, persist_manifest,
     update_batch_summary, write_json_atomic,
 )
 from sparq.architectures.v1.settings import V1Settings
@@ -104,6 +104,7 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
         self.temporary_directory.cleanup()
 
     async def test_successful_run_is_persisted_as_completed(self):
+        self.batch.evaluation_id = "baseline-v1"
         output = SystemOutput(
             run_id="run-1",
             query=self.question["text"],
@@ -131,11 +132,13 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.entry.status, "completed")
         evaluation_context = agent.run.await_args.kwargs["evaluation_context"]
         self.assertEqual(evaluation_context.batch_id, "batch-1")
+        self.assertEqual(evaluation_context.evaluation_id, "baseline-v1")
         self.assertEqual(evaluation_context.question_id, 1)
         self.assertEqual(evaluation_context.iteration, 1)
         manifest = json.loads(self.manifest_path.read_text())
         self.assertEqual(manifest["status"], "completed")
         self.assertEqual(manifest["completed_runs"], 1)
+        self.assertEqual(manifest["evaluation_id"], "baseline-v1")
 
     async def test_failed_run_records_the_exception(self):
         agent = SimpleNamespace(run=AsyncMock(side_effect=RuntimeError("model unavailable")))
@@ -181,7 +184,7 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
         for status, expected in (("completed", 0), ("completed_with_errors", 1), ("failed", 1)):
             with self.subTest(status=status):
                 self.batch.status = cast(BatchStatus, status)
-                with patch("eval.batch_eval.parse_args", return_value=SimpleNamespace(n_questions=1, iterations=1)), patch(
+                with patch("eval.batch_eval.parse_args", return_value=SimpleNamespace(n_questions=1, iterations=1, evaluation_id=None)), patch(
                     "eval.batch_eval.load_questions", return_value=[self.question],
                 ), patch("eval.batch_eval.ENVSettings"), patch(
                     "eval.batch_eval.V1Settings", return_value=self.settings,
@@ -298,6 +301,24 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
 
 
 class TestInputAndPersistence(unittest.TestCase):
+    def test_separate_batches_share_evaluation_id_and_keep_unique_artifacts(self):
+        question: Question = {"id": 1, "text": "Question", "grade": 4, "weather_related": False}
+        with patch("sys.argv", ["batch_eval", "-k", "1", "--evaluation-id", "baseline-v1"]):
+            args = parse_args()
+        with patch("eval.batch_eval.hash_file", return_value="sha256:test"), patch(
+            "eval.batch_eval.get_code_version", return_value={},
+        ):
+            first, first_dir = create_batch([question], 1, args.iterations, {}, args.evaluation_id)
+            second, second_dir = create_batch([question], 1, args.iterations, {}, args.evaluation_id)
+        self.assertEqual(first.evaluation_id, "baseline-v1")
+        self.assertEqual(first.evaluation_id, second.evaluation_id)
+        self.assertNotEqual(first.batch_id, second.batch_id)
+        self.assertNotEqual(first_dir, second_dir)
+        self.assertNotEqual(first.runs[0].run_id, second.runs[0].run_id)
+        legacy_manifest = first.model_dump(mode="json")
+        del legacy_manifest["evaluation_id"]
+        self.assertIsNone(BatchEvalOutput.model_validate(legacy_manifest).evaluation_id)
+
     def test_atomic_write_failure_preserves_existing_file(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "batch.json"

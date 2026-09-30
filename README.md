@@ -112,6 +112,20 @@ Run interactively:
 uv run sparq
 ```
 
+Run one batch-evaluation iteration and save its results:
+
+```bash
+uv run python -m eval.batch_eval -n 10 -k 1 --evaluation-id baseline-v1
+```
+
+Repeat this command later with the same `--evaluation-id` to group the batches
+into one evaluation. Each invocation gets a unique `batch_id` and saves its
+manifest and run artifacts under `eval/results/batch_eval/<batch_id>/`.
+The shared `evaluation_id` is stored in `batch.json` and each result's
+`evaluation_context`. Iteration numbers are local to each batch; this command
+evaluates the same first 10 eligible questions once each on every invocation.
+Omitting `--evaluation-id` leaves the batch ungrouped.
+
 ---
 
 ## Outputs

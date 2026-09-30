@@ -50,6 +50,7 @@ class EvaluationContext(BaseModel):
     """Links one SPARQ run to its source batch-evaluation question."""
 
     batch_id: str
+    evaluation_id: str | None = None
     question_id: int
     iteration: int
 
@@ -73,6 +74,7 @@ class BatchEvalOutput(BaseModel):
     """Manifest for a complete batch-evaluation experiment."""
 
     batch_id: str
+    evaluation_id: str | None = None
     status: BatchStatus = "running"
     time_started: datetime
     time_ended: datetime | None = None
