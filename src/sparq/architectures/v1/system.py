@@ -23,8 +23,8 @@ from sparq.utils.helpers import load_text, write_json
 
 
 class Agentic_system:
-    def __init__(self, verbose: bool = False):
-        self.settings = V1Settings(verbose=verbose)
+    def __init__(self, verbose: bool = False, *, settings: V1Settings | None = None):
+        self.settings = settings if settings is not None else V1Settings(verbose=verbose)
 
         # Get system prompts
         self.prompts_dir = self.settings.paths.prompts_dir
