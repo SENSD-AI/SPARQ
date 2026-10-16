@@ -7,12 +7,11 @@ This module implements app configuration. Specifically, it provides the followin
 3. Configuration building: Builds a configuration object.
 """
 
-from pathlib import Path
-from typing import Annotated, Any, Optional, Literal, Self
-import platform
 import os
-
+import platform
 from datetime import datetime
+from pathlib import Path
+from typing import Annotated, Any, Literal, Optional, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import (
@@ -23,8 +22,7 @@ from pydantic_settings import (
     TomlConfigSettingsSource,
 )
 
-from sparq.utils.get_package_dir import get_project_root, get_package_dir
-
+from sparq.utils.get_package_dir import get_package_dir, get_project_root
 
 # -----------------------------------------------------------------------
 # Configuration directories based on platform

@@ -1,17 +1,14 @@
 from pathlib import Path
-from typing import List
-
 import tiktoken
-
-from sparq.schemas.state import State
-from sparq.schemas.output_schemas import StepResult
-from sparq.settings import LLMSetting
-from sparq.utils.get_llm import get_llm
-from sparq.logging_config import logger
-from sparq.tools.filesystemtools import filesystemtools
-
-from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 from langchain.agents import create_agent
+from langchain_core.prompts import BasePromptTemplate, PromptTemplate
+
+from sparq.logging_config import logger
+from sparq.schemas.output_schemas import StepResult
+from sparq.schemas.state import State
+from sparq.settings import LLMSetting
+from sparq.tools.filesystemtools import filesystemtools
+from sparq.utils.get_llm import get_llm
 
 # Used when llm_config.max_tokens is not set. LLMSetting has no per-model context
 # window field yet (see docs/improvements.md #13), so this is a conservative guess.
@@ -22,7 +19,19 @@ DEFAULT_CONTEXT_WINDOW = 128_000
 _TOKENIZER = tiktoken.get_encoding("cl100k_base")
 
 
-def format_results(results: List[StepResult]) -> str:
+def format_results(results: list[StepResult]) -> str:
+    """Format step results as labeled text for the aggregator prompt.
+
+    Each result includes all serialized fields, with the ID on the same line
+    as its label and other values on the following line. Results retain their
+    input order and are separated by a horizontal line of hyphens.
+
+    Args:
+        results: Execution results to include in the prompt.
+
+    Returns:
+        The formatted results, or an empty string if no results are supplied.
+    """
     parts = []
     for result in results:
         part_str = ""
@@ -37,7 +46,7 @@ def count_tokens(text: str) -> int:
     return len(_TOKENIZER.encode(text))
 
 # TODO: implement this
-def truncate_results(results: List[StepResult], max_tokens: int) -> List[StepResult]:
+def truncate_results(results: list[StepResult], max_tokens: int) -> list[StepResult]:
     """Iteratively truncate the least important step content first (misc ->
     files_generated -> step), then shrink execution_results text, until the
     formatted results fit within max_tokens. See docs/improvements.md #13.
@@ -47,7 +56,7 @@ def truncate_results(results: List[StepResult], max_tokens: int) -> List[StepRes
 
 def aggregator_node(state: State, llm_config: LLMSetting, prompt: str, working_dir: Path):
     with logger.contextualize(node="aggregator"):
-        results: List[StepResult] = state.results
+        results: list[StepResult] = state.results
 
         if not results:
             return {'answer': '[AGGREGATOR]: There are no results to return'}

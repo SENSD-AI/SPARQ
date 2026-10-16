@@ -2,7 +2,12 @@ from pathlib import Path
 
 from pydantic_settings import SettingsConfigDict
 
-from sparq.settings import BaseAgenticSettings, BaseLLMSettings, LLMSetting, get_user_config_dir
+from sparq.settings import (
+    BaseAgenticSettings,
+    BaseLLMSettings,
+    LLMSetting,
+    get_user_config_dir,
+)
 from sparq.utils.get_package_dir import get_project_root
 
 V1_INNER_CONFIG: Path = Path(__file__).parent / "default_config.toml"
