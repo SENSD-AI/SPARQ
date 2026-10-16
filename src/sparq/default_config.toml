@@ -1,4 +1,7 @@
-test_query = "What are the main factors contributing to salmonella rates in Missouri in a statistical sense?"
+test_query = """\
+Across Missouri counties in 2020, was social vulnerability associated with the \
+number of reported human Salmonella isolates per 100,000 residents? Quantify the association, \
+create a scatter plot, and explain the main limitations of the analysis"""
 
 [paths]
 output_dir = "~/tmp/sparq/output"
