@@ -1,3 +1,7 @@
+# Organizer node
+- [ ] Make the organizer node handle filling up the
+    `files_generated` field. At the same time, remove the handling by the executor node.
+
 # Parallel Execution (feat/parallel-repl-execution)
 - [x] Fix `aggregator.py` — still reads `state.executor_results` (old format); update to consume `state.results: List[StepResult]`
 - [x] Clean up per-step namespaces — `cleanup_ns` in `system.py` only removes the main run namespace; add cleanup for `{run_id}_step_{n}` temp files created by workers
