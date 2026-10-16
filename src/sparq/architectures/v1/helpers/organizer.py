@@ -19,7 +19,7 @@ FIGURE_FTYPES = ['.png', '.jpg', '.jpeg', '.svg', '.gif', '.tif', '.tiff']
 TABULAR_FTYPES = ['.csv', '.tsv', '.xls', '.xlsx', '.parquet']
 DOC_FTYPES = ['.txt', '.md', '.pdf', '.doc', '.docx', '.html']
 
-def organizer(state: State, working_dir: Path):
+def organize(working_dir: Path) -> list[Path] | None:
     """Organizer artifacts produced so far
 
     - Put figures in figures/, tables in tables/, docs in docs/
@@ -43,7 +43,7 @@ def organizer(state: State, working_dir: Path):
     )
 
     new_artifacts = []
-    for artifact_path in working_dir.rglob("*"):
+    for artifact_path in list(working_dir.rglob("*")):
         if artifact_path.is_file() and artifact_path != index_path:
             relative_path = artifact_path.relative_to(working_dir)
 
@@ -55,6 +55,7 @@ def organizer(state: State, working_dir: Path):
 
     if new_artifacts:
         return new_artifacts
+
 
 def organize_artifact(index: Index, artifact_path: Path, working_dir: Path)-> Path:
     """Move a relative artifact path into its category and update Index in memory.

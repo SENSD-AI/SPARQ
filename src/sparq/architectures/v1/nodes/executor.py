@@ -1,23 +1,29 @@
-from pathlib import Path
 import asyncio
+from pathlib import Path
 from typing import List, Tuple
 
-from sparq.schemas.state import State
-from sparq.schemas.output_schemas import Plan, Step, StepResult
-from sparq.settings import LLMSetting
-from sparq.utils import helpers
-from sparq.utils.get_llm import get_llm
-from sparq.logging_config import logger
-from sparq.tools.python_repl.python_repl_tool import make_python_repl_tool
-from sparq.tools.python_repl.namespace import get_ns_path, load_ns, save_ns
-from sparq.tools.filesystemtools import filesystemtools
-from sparq.tools.data_discovery_tools import make_load_dataset_tool, get_sheet_names, find_csv_excel_files, get_cached_dataset_path
-
-from langchain_core.prompts import BasePromptTemplate, PromptTemplate
-from langchain_core.messages import SystemMessage
-from langchain_core.runnables.config import RunnableConfig
 from langchain.agents import create_agent
 from langchain.agents.middleware import TodoListMiddleware
+from langchain_core.messages import SystemMessage
+from langchain_core.prompts import BasePromptTemplate, PromptTemplate
+from langchain_core.runnables.config import RunnableConfig
+
+from sparq.logging_config import logger
+from sparq.schemas.output_schemas import Plan, Step, StepResult
+from sparq.schemas.state import State
+from sparq.settings import LLMSetting
+from sparq.tools.data_discovery_tools import (
+    find_csv_excel_files,
+    get_cached_dataset_path,
+    get_sheet_names,
+    make_load_dataset_tool,
+)
+from sparq.tools.filesystemtools import filesystemtools
+from sparq.tools.python_repl.namespace import get_ns_path, load_ns, save_ns
+from sparq.tools.python_repl.python_repl_tool import make_python_repl_tool
+from sparq.utils import helpers
+from sparq.utils.get_llm import get_llm
+from ..helpers.organizer import organize
 
 MAX_NAMESPACE_VARS_WARNING = 30
 MAX_RETRY = 3
@@ -146,6 +152,9 @@ async def executor_node(state: State, config: RunnableConfig, llm_config: LLMSet
             # Step 3: Track steps that were completed successfully and return them
             batch_results: List[StepResult] = await asyncio.gather(*tasks)
 
+            # Step 4: Organize produced artifacts
+            new_artifacts = organize(output_dir) or []
+
             for result in batch_results:
                 if result.success:
                     completed.add(result.id)
@@ -160,9 +169,13 @@ async def executor_node(state: State, config: RunnableConfig, llm_config: LLMSet
                         logger.warning(f"Step {result.id} failed (attempt {attempt_counts[result.id]}/{MAX_RETRY}), retrying... Reason: {result.misc or result.execution_results or '(none given)'}")
 
             # Keep `state` in sync so the next batch's get_results_of_dependent_steps sees this round's results.
-            state = state.model_copy(update={"completed_plan_steps": list(completed), "results": all_results})
+            state = state.model_copy(update={
+                "completed_plan_steps": list(completed),
+                "results": all_results,
+                "artifacts": state.artifacts + new_artifacts,
+            })
 
-        return {"completed_plan_steps": list(completed), "results": all_results}
+        return {"completed_plan_steps": list(completed), "results": all_results, "artifacts": state.artifacts}
 
 
 async def execute_single_step_worker(step: Step, run_id: str, llm_config: LLMSetting, prompt: str, dependency_results: List[StepResult], state: State, output_dir: Path) -> StepResult:
@@ -223,14 +236,14 @@ async def execute_single_step_worker(step: Step, run_id: str, llm_config: LLMSet
 async def test_executor(plan: Plan):
     print(f"Testing executor node with sample plan: \n {plan.pretty_print()}")
 
-    from sparq.settings import (
-        ENVSettings,
-        PathSettings,
-        DATA_MANIFEST_PATH,
-        DATA_SUMMARIES_SHORT_PATH,
-    )
     from sparq.architectures.v1.settings import V1Settings
     from sparq.schemas.data_context import load_data_context
+    from sparq.settings import (
+        DATA_MANIFEST_PATH,
+        DATA_SUMMARIES_SHORT_PATH,
+        ENVSettings,
+        PathSettings,
+    )
 
     # Load environment and system settings
     env_settings = ENVSettings()
