@@ -42,16 +42,21 @@ def organizer(state: State, working_dir: Path):
     + index.uncategorized
     )
 
+    new_artifacts = []
     for artifact_path in working_dir.rglob("*"):
         if artifact_path.is_file() and artifact_path != index_path:
             relative_path = artifact_path.relative_to(working_dir)
 
             if relative_path not in indexed_paths:
-                organize_artifact(index, relative_path, working_dir)
+                new_artifact = organize_artifact(index, relative_path, working_dir)
+                new_artifacts.append(new_artifact)
 
     index_path.write_text(index.model_dump_json(indent=4))
 
-def organize_artifact(index: Index, artifact_path: Path, working_dir: Path)-> None:
+    if new_artifacts:
+        return new_artifacts
+
+def organize_artifact(index: Index, artifact_path: Path, working_dir: Path)-> Path:
     """Move a relative artifact path into its category and update Index in memory.
 
     Paths stored in Index are relative to working_dir.
@@ -82,3 +87,5 @@ def organize_artifact(index: Index, artifact_path: Path, working_dir: Path)-> No
 
     if relative_destination not in indexed_files:
         indexed_files.append(relative_destination)
+
+    return relative_destination

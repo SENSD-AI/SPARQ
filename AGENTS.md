@@ -22,7 +22,7 @@ Before implementing:
 - No abstractions for single-use code.
 - No "flexibility" or "configurability" that wasn't requested.
 - No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
+- If you write 200 lines and it could be 50, rewrite it. But never sacrifice readability for compactness.
 
 Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
 
