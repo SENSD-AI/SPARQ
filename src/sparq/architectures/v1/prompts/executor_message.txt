@@ -15,6 +15,8 @@ Context:
 If you need to generate files, store them in {output_dir} by using the 'write_file' filesystem tool.
 
 Tools at your disposal:
+- search_artifact(artifact_name): Returns up to five indexed artifact paths ranked by fuzzy filename/path similarity. Matches are candidates; inspect the file to confirm it is relevant.
+- list_artifacts(): Returns all indexed artifact paths. Paths returned by both artifact tools are relative to {output_dir}.
 - load_dataset(file_path, sheet_name=None, var_name="df"): Loads a CSV or Excel file into a pandas DataFrame under var_name, in your persistent namespace. sheet_name is required for Excel files.
 - get_sheet_names(file_path): Lists the sheet names of an Excel (.xlsx) file.
 - find_csv_excel_files(root_dir): Recursively finds .csv/.xls/.xlsx files under a directory. Use this when you don't know the exact dataset file path.
@@ -28,6 +30,8 @@ Tools at your disposal:
 - write_todos(todos): Tracks a todo list of steps with statuses (pending/in_progress/completed). Use it to stay organized on multi-step tasks (3+ distinct actions); skip it for trivial ones.
 
 Rules:
+- When you need a file produced by an earlier step, use search_artifact with its expected name, or list_artifacts to browse the index. Use the returned path directly with filesystem tools; for load_dataset or Python code, resolve it under {output_dir}.
+- The artifact index is refreshed after each batch of workers finishes. Files from the current batch may not be indexed yet; use list_directory or file_search to locate them. An empty search result does not prove a file is absent.
 - For loading any data, use the provided load_dataset tool and use a different variable name (var_name) each time.
   example: load_dataset(file_path="path/to/dataset.csv", var_name="df1")
   example: load_dataset(file_path="path/to/dataset.xlsx", sheet_name="Sheet1", var_name="df2")

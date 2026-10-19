@@ -4,6 +4,7 @@ from typing import List, Tuple
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import TodoListMiddleware
+from langchain.tools import tool
 from langchain_core.messages import SystemMessage
 from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 from langchain_core.runnables.config import RunnableConfig
@@ -12,6 +13,7 @@ from sparq.logging_config import logger
 from sparq.schemas.output_schemas import Plan, Step, StepResult
 from sparq.schemas.state import State
 from sparq.settings import LLMSetting
+from sparq.tools.artifact_tools import ArtifactTools
 from sparq.tools.data_discovery_tools import (
     find_csv_excel_files,
     get_cached_dataset_path,
@@ -23,7 +25,7 @@ from sparq.tools.python_repl.namespace import get_ns_path, load_ns, save_ns
 from sparq.tools.python_repl.python_repl_tool import make_python_repl_tool
 from sparq.utils import helpers
 from sparq.utils.get_llm import get_llm
-from ..helpers.organizer import organize
+from ..helpers.organizer import INDEX_FNAME, Index, organize
 
 MAX_NAMESPACE_VARS_WARNING = 30
 MAX_RETRY = 3
@@ -105,6 +107,9 @@ async def executor_node(state: State, config: RunnableConfig, llm_config: LLMSet
     with logger.contextualize(node="executor"):
         logger.info("Executing plan to answer your query...")
         output_dir.mkdir(parents=True, exist_ok=True)
+        index_path = output_dir / INDEX_FNAME
+        if not index_path.exists():
+            index_path.write_text(Index().model_dump_json(indent=4))
         run_id = config.get('configurable', {}).get('run_id', 'default')
 
         plan = state.plan
@@ -192,7 +197,10 @@ async def execute_single_step_worker(step: Step, run_id: str, llm_config: LLMSet
     # Create Deep Agent
     llm_object = get_llm(llm_config.model_name, llm_config.provider)
     data_context = state.data_context
+    artifact_tools = ArtifactTools(output_dir)
     _tools = [
+        tool(artifact_tools.search_artifact),
+        tool(artifact_tools.list_artifacts),
         make_load_dataset_tool(str(output_dir), worker_ns),
         get_sheet_names,
         make_python_repl_tool(str(output_dir), worker_ns),
