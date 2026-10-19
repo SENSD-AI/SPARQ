@@ -1,12 +1,14 @@
 from pathlib import Path
 import tiktoken
 from langchain.agents import create_agent
+from langchain.tools import tool
 from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 
 from sparq.logging_config import logger
 from sparq.schemas.output_schemas import StepResult
 from sparq.schemas.state import State
 from sparq.settings import LLMSetting
+from sparq.tools.artifact_tools import ArtifactTools
 from sparq.tools.filesystemtools import filesystemtools
 from sparq.utils.get_llm import get_llm
 
@@ -76,10 +78,14 @@ def aggregator_node(state: State, llm_config: LLMSetting, prompt: str, working_d
         system_prompt_str: str = system_prompt_template.invoke(input={}).to_string()
 
         llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
+        artifact_tools = ArtifactTools(working_dir)
         agent = create_agent(
             model=llm,
             name="aggregator",
-            tools=filesystemtools(working_dir=str(working_dir), selected_tools=['read_file', 'list_directory', 'file_search']),
+            tools=[
+                tool(artifact_tools.search_artifact),
+                tool(artifact_tools.list_artifacts),
+            ] + filesystemtools(working_dir=str(working_dir), selected_tools=['read_file', 'list_directory', 'file_search']),
             system_prompt=system_prompt_str
         )
 
