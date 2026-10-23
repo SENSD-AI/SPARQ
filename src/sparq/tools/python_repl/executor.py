@@ -1,4 +1,4 @@
-from contextlib import redirect_stderr, redirect_stdout
+import ast
 import importlib
 import io
 import json
@@ -8,14 +8,17 @@ import pickle
 import tempfile
 import traceback
 import types
-
-import ast
+from contextlib import redirect_stderr, redirect_stdout
 
 from sparq.logging_config import logger
-from sparq.tools.python_repl.ast_utils import rewrite_last_expr, compile_for_repl
-from sparq.tools.python_repl.namespace import load_ns, clean_namespace, get_modules_in_namespace
+from sparq.tools.python_repl.ast_utils import compile_for_repl, rewrite_last_expr
+from sparq.tools.python_repl.namespace import (
+    clean_namespace,
+    get_modules_in_namespace,
+    load_ns,
+)
 from sparq.tools.python_repl.package_manager import PackageUtils as putils
-from sparq.tools.python_repl.schemas import OutputSchema, ExceptionInfo
+from sparq.tools.python_repl.schemas import ExceptionInfo, OutputSchema
 
 
 def pickle_vars(namespace: dict) -> dict[str, object]:
