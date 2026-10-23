@@ -11,6 +11,7 @@ import types
 
 import ast
 
+from sparq.logging_config import logger
 from sparq.tools.python_repl.ast_utils import rewrite_last_expr, compile_for_repl
 from sparq.tools.python_repl.namespace import load_ns, clean_namespace, get_modules_in_namespace
 from sparq.tools.python_repl.package_manager import PackageUtils as putils
@@ -169,6 +170,7 @@ def _execute_code_in_new_process(code: str, workspace: str, timeout: int = 10, n
             success=data["success"]
         )
     except FileNotFoundError:
+        logger.error("Execution result file was not written: {}", result_path)
         return OutputSchema(
             output="",
             error=ExceptionInfo(type="ResultMissingError", message="Result file was not written.", traceback="", extra_context={}),
@@ -176,6 +178,7 @@ def _execute_code_in_new_process(code: str, workspace: str, timeout: int = 10, n
             success=False
         )
     except Exception as e:
+        logger.error("Failed to read execution result {}: {}", result_path, e)
         return OutputSchema(
             output="",
             error=ExceptionInfo(type=type(e).__name__, message=str(e), traceback="", extra_context={}),
@@ -300,8 +303,9 @@ def _target(code: str, workspace: str, ns_path: str, result_path: str) -> None:
         try:
             with open(result_path, "w") as f:
                 json.dump(result.model_dump(), f)
-        except Exception as e:
-            print(f"Failed to write result: {e}")
+        except Exception:
+            # The parent logs missing/unreadable results in its run/node context.
+            pass
 
 
 if __name__ == "__main__":
