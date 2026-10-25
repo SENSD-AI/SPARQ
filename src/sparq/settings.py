@@ -89,11 +89,6 @@ class ENVSettings(BaseSettings):
     aws_profile: Optional[str] = None
     aws_region: Optional[str] = None
 
-    def __init__(self, verbose: bool = False, **data):
-        super().__init__(**data)
-        if verbose:
-            print(self.model_dump_json(indent=2))
-
     def model_post_init(self, _) -> None:
         for key, val in self.model_dump().items():
             if val is not None:
@@ -150,11 +145,6 @@ class BaseAgenticSettings[LLMConfigT: BaseLLMSettings](BaseSettings):
     test_query: str
     llm_config: LLMConfigT
     paths: PathSettings
-
-    def __init__(self, verbose: bool = False, **data):
-        super().__init__(**data)
-        if verbose:
-            print(self.model_dump_json(indent=2))
 
     @classmethod
     def settings_customise_sources(
