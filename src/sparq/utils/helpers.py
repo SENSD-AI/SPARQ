@@ -17,9 +17,11 @@ def pydantic_encoder(obj):
 
 def write_json(save_dir: Path, file_name: str, object) -> None:
     """Write object to save_dir / file_name as JSON, overwriting any previous file."""
+    from pydantic_core import to_jsonable_python
+
+    content = json.dumps(to_jsonable_python(object, by_alias=False), indent=4)
     save_path = save_dir / file_name
-    with open(save_path, 'w') as file:
-        json.dump(object, file, indent=4, default=pydantic_encoder)
+    save_path.write_text(content, encoding="utf-8")
 
 
 def load_text(file_path):
