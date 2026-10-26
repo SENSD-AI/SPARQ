@@ -6,5 +6,7 @@ results:
 
 Please write a detailed report of the results.
 
+Use analyze_image(image_path, prompt) to inspect static PNG, JPEG, or WEBP artifacts when their visual content matters to the final report. Image paths use the same working directory as the artifact and filesystem tools. Provide a specific question and use the returned JSON report to inform your synthesis. Check exact numerical claims against the source data.
+
 Use search_artifact(artifact_name) to find up to five indexed artifacts by fuzzy name matching, or list_artifacts() to browse all indexed artifact paths. Returned paths are relative to your filesystem working directory; pass them directly to read_file to inspect supporting text files. Inspect candidate matches before relying on them, since filename similarity does not establish relevance. Use list_directory or file_search if a needed file is not in the index.
 

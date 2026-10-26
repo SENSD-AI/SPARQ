@@ -5,6 +5,7 @@ from typing import List, Tuple
 from langchain.agents import create_agent
 from langchain.agents.middleware import TodoListMiddleware
 from langchain.tools import tool
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage
 from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 from langchain_core.runnables.config import RunnableConfig
@@ -21,10 +22,12 @@ from sparq.tools.data_discovery_tools import (
     make_load_dataset_tool,
 )
 from sparq.tools.filesystemtools import filesystemtools
+from sparq.tools.image_processing.image_analysis_tool import make_image_analysis_tool
 from sparq.tools.python_repl.namespace import get_ns_path, load_ns, save_ns
 from sparq.tools.python_repl.python_repl_tool import make_python_repl_tool
 from sparq.utils import helpers
 from sparq.utils.get_llm import get_llm
+
 from ..helpers.organizer import INDEX_FNAME, Index, organize
 
 MAX_NAMESPACE_VARS_WARNING = 30
@@ -93,7 +96,14 @@ def get_results_of_dependent_steps(step: Step, state: State) -> List[StepResult]
     return [step_result for step_result in state.results if step_result.id in step.dependencies]
 
 
-async def executor_node(state: State, config: RunnableConfig, llm_config: LLMSetting, worker_prompt: str, output_dir: Path):
+async def executor_node(
+    state: State,
+    config: RunnableConfig,
+    llm_config: LLMSetting,
+    worker_prompt: str,
+    output_dir: Path,
+    vision_model: BaseChatModel,
+):
     """
     Execute the plan.
 
@@ -103,6 +113,7 @@ async def executor_node(state: State, config: RunnableConfig, llm_config: LLMSet
         llm_config: LLM model and provider settings for worker agents.
         worker_prompt: System prompt for a worker agent.
         output_dir: Directory where executor outputs (plots, files) are written.
+        vision_model: Dedicated model used by the image analysis tool.
     """
     with logger.contextualize(node="executor"):
         logger.info("Executing plan to answer your query...")
@@ -150,7 +161,8 @@ async def executor_node(state: State, config: RunnableConfig, llm_config: LLMSet
                         prompt=worker_prompt,
                         dependency_results=dependency_results,
                         state=state,
-                        output_dir=output_dir
+                        output_dir=output_dir,
+                        vision_model=vision_model,
                     )
                 )
 
@@ -183,7 +195,16 @@ async def executor_node(state: State, config: RunnableConfig, llm_config: LLMSet
         return {"completed_plan_steps": list(completed), "results": all_results, "artifacts": state.artifacts}
 
 
-async def execute_single_step_worker(step: Step, run_id: str, llm_config: LLMSetting, prompt: str, dependency_results: List[StepResult], state: State, output_dir: Path) -> StepResult:
+async def execute_single_step_worker(
+    step: Step,
+    run_id: str,
+    llm_config: LLMSetting,
+    prompt: str,
+    dependency_results: List[StepResult],
+    state: State,
+    output_dir: Path,
+    vision_model: BaseChatModel,
+) -> StepResult:
     """An isolated worker instance spawned for an individual plan step"""
     logger.info(f"[Worker Agent] starting step {step.id}: {step.step_description}")
 
@@ -201,6 +222,7 @@ async def execute_single_step_worker(step: Step, run_id: str, llm_config: LLMSet
     _tools = [
         tool(artifact_tools.search_artifact),
         tool(artifact_tools.list_artifacts),
+        make_image_analysis_tool(vision_model, image_root=output_dir),
         make_load_dataset_tool(str(output_dir), worker_ns),
         get_sheet_names,
         make_python_repl_tool(str(output_dir), worker_ns),
@@ -268,7 +290,9 @@ async def test_executor(plan: Plan):
 
     assert run_dir is not None
     state = State(query="", route=None, answer=None, plan=plan, data_context=data_context)
-    response = await executor_node(state=state, config={"configurable": {"run_id": "test"}}, llm_config=system_settings.llm_config.executor, worker_prompt=prompt, output_dir=run_dir)
+    vision_config = system_settings.llm_config.vision_model
+    vision_model = get_llm(model=vision_config.model_name, provider=vision_config.provider)
+    response = await executor_node(state=state, config={"configurable": {"run_id": "test"}}, llm_config=system_settings.llm_config.executor, worker_prompt=prompt, output_dir=run_dir, vision_model=vision_model)
 
     for result in response['results']:
         print(result.id)

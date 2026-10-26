@@ -63,7 +63,7 @@ class TestV1Settings(unittest.TestCase):
         self.assertTrue(str(run_dir).startswith(str(self.settings.paths.output_dir)))
 
     def test_llm_config_loaded(self):
-        for node in ("router", "planner", "executor", "aggregator"):
+        for node in ("router", "planner", "executor", "aggregator", "vision_model"):
             llm = getattr(self.settings.llm_config, node)
             self.assertIsInstance(llm.model_name, str)
             self.assertIsInstance(llm.provider, str)

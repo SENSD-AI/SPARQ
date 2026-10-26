@@ -19,6 +19,7 @@ from sparq.logging_config import logger, run_log_context
 from sparq.schemas.output_schemas import EvaluationContext, SystemOutput
 from sparq.schemas.state import State
 from sparq.tools.python_repl.namespace import cleanup_run
+from sparq.utils.get_llm import get_llm
 from sparq.utils.helpers import load_text, write_json
 
 
@@ -42,10 +43,26 @@ class Agentic_system:
         llm_config = self.settings.llm_config
         run_dir = self.settings.paths.run_dir
         run_dir.mkdir(parents=True, exist_ok=True)
+        vision_model = get_llm(
+            model=llm_config.vision_model.model_name,
+            provider=llm_config.vision_model.provider,
+        )
         self.router_node_partial = partial(router_node, llm_config=llm_config.router, prompt=self.system_prompts['router_prompt'])
         self.planner_node_partial = partial(planner_node, llm_config=llm_config.planner, sys_prompt=self.system_prompts['planner_prompt'])
-        self.executor_node_partial = partial(executor_node, llm_config=llm_config.executor, worker_prompt=self.system_prompts['executor_prompt'], output_dir=run_dir / "executor")
-        self.aggregator_node_partial = partial(aggregator_node, llm_config=llm_config.aggregator, prompt=self.system_prompts['aggregator_prompt'], working_dir=run_dir / "executor")
+        self.executor_node_partial = partial(
+            executor_node,
+            llm_config=llm_config.executor,
+            worker_prompt=self.system_prompts['executor_prompt'],
+            output_dir=run_dir / "executor",
+            vision_model=vision_model,
+        )
+        self.aggregator_node_partial = partial(
+            aggregator_node,
+            llm_config=llm_config.aggregator,
+            prompt=self.system_prompts['aggregator_prompt'],
+            working_dir=run_dir / "executor",
+            vision_model=vision_model,
+        )
         self.saver_node_partial = partial(saver_node, save_dir=run_dir)
     
     def _build_graph(self):

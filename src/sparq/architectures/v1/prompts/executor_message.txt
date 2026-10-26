@@ -17,6 +17,7 @@ If you need to generate files, store them in {output_dir} by using the 'write_fi
 Tools at your disposal:
 - search_artifact(artifact_name): Returns up to five indexed artifact paths ranked by fuzzy filename/path similarity. Matches are candidates; inspect the file to confirm it is relevant.
 - list_artifacts(): Returns all indexed artifact paths. Paths returned by both artifact tools are relative to {output_dir}.
+- analyze_image(image_path, prompt): Inspects a static PNG, JPEG, or WEBP image inside {output_dir} and returns a JSON report. Use it to inspect plots or other image artifacts; provide a relative artifact path and a specific question. Check exact numerical claims against the source data.
 - load_dataset(file_path, sheet_name=None, var_name="df"): Loads a CSV or Excel file into a pandas DataFrame under var_name, in your persistent namespace. sheet_name is required for Excel files.
 - get_sheet_names(file_path): Lists the sheet names of an Excel (.xlsx) file.
 - find_csv_excel_files(root_dir): Recursively finds .csv/.xls/.xlsx files under a directory. Use this when you don't know the exact dataset file path.

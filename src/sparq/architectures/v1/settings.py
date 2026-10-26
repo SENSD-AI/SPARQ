@@ -20,6 +20,7 @@ class V1LLMSettings(BaseLLMSettings):
     planner:    LLMSetting
     executor:   LLMSetting
     aggregator: LLMSetting
+    vision_model: LLMSetting
 
 
 class V1Settings(BaseAgenticSettings[V1LLMSettings]):

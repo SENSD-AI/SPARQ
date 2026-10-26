@@ -21,3 +21,7 @@ provider = "google_genai"
 [llm_config.aggregator]
 model = "gemini-2.0-flash"
 provider = "google_genai"
+
+[llm_config.vision_model]
+model = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+provider = "aws_bedrock"
