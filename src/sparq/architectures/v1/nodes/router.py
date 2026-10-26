@@ -1,11 +1,13 @@
-from sparq.schemas.state import State
+from typing import cast
+
+from langchain_core.messages import HumanMessage, SystemMessage
+
+from sparq.logging_config import logger
 from sparq.schemas.output_schemas import Router
+from sparq.schemas.state import State
 from sparq.settings import LLMSetting
 from sparq.utils.get_llm import get_llm
-from sparq.logging_config import logger
 
-from typing import cast
-from langchain_core.messages import SystemMessage, HumanMessage
 
 def router_func(router_output: Router) -> bool:
     """

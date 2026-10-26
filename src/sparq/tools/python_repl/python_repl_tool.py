@@ -1,8 +1,7 @@
 from langchain_core.tools import tool
 
-from sparq.tools.python_repl.schemas import PythonREPLInput
 from sparq.tools.python_repl.executor import execute_code
-from sparq.tools.python_repl.schemas import OutputSchema
+from sparq.tools.python_repl.schemas import OutputSchema, PythonREPLInput
 
 
 def make_python_repl_tool(workspace: str, ns_path: str):

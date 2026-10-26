@@ -30,7 +30,6 @@ from sparq.schemas.output_schemas import (
 from sparq.settings import ENVSettings
 from sparq.utils.get_package_dir import get_project_root
 
-
 MAX_CONCURRENT_RUNS = 3
 # Resolve paths once so manifests remain meaningful regardless of cwd.
 _project_root = get_project_root()

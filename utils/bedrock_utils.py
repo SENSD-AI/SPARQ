@@ -3,14 +3,13 @@ Lists the available Amazon Bedrock models.
 """
 import logging
 import os
-import boto3
-from typing import List, Dict
-from sparq.utils.helpers import render_records_table
+from typing import Dict, List
 
+import boto3
 from botocore.exceptions import ClientError
 
 from sparq.settings import ENVSettings
-
+from sparq.utils.helpers import render_records_table
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

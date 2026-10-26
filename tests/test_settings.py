@@ -2,8 +2,8 @@ import os
 import unittest
 from pathlib import Path
 
-from sparq.settings import ENVSettings
 from sparq.architectures.v1.settings import V1Settings
+from sparq.settings import ENVSettings
 
 
 class TestENVSettings(unittest.TestCase):

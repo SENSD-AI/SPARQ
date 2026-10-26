@@ -1,5 +1,6 @@
 from pathlib import Path
 
+
 def get_package_dir(package_name='sparq', max_depth=5) -> Path | None:
     current_dir = Path(__file__).parent
     depth = 0

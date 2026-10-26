@@ -24,8 +24,8 @@ def _make_openrouter(model: str, provider: str):
     )
 
 def _make_bedrock(model: str, provider: str):
-    from langchain_aws import ChatBedrockConverse
     import boto3
+    from langchain_aws import ChatBedrockConverse
 
     # Kept for interface consistency with other factories.
     _ = provider

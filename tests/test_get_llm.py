@@ -1,9 +1,10 @@
 import unittest
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
+
 from langchain_aws import ChatBedrockConverse
 
-from sparq.utils.get_llm import get_llm
 from sparq.settings import ENVSettings
+from sparq.utils.get_llm import get_llm
 
 
 class TestGetLLM(unittest.TestCase):

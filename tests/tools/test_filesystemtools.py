@@ -3,6 +3,7 @@ from pathlib import Path
 
 from src.sparq.tools.filesystemtools import filesystemtools
 
+
 class TestFilesystemTools(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

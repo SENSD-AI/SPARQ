@@ -3,7 +3,7 @@ import tempfile
 import unittest
 
 from sparq.tools.python_repl.executor import execute_code
-from sparq.tools.python_repl.namespace import get_ns_path, cleanup_ns
+from sparq.tools.python_repl.namespace import cleanup_ns, get_ns_path
 
 
 class TestExecutor(unittest.TestCase):

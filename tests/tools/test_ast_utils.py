@@ -2,7 +2,7 @@ import ast
 import linecache
 import unittest
 
-from sparq.tools.python_repl.ast_utils import rewrite_last_expr, compile_for_repl
+from sparq.tools.python_repl.ast_utils import compile_for_repl, rewrite_last_expr
 
 
 class TestRewriteLastExpr(unittest.TestCase):

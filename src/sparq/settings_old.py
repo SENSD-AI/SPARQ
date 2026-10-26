@@ -1,13 +1,14 @@
-from pathlib import Path
-from typing import Dict
 import os
 import sys
 from datetime import datetime as dt
+from pathlib import Path
+from typing import Dict
 
 import appdirs as ad
 from dotenv import load_dotenv
 
 from sparq.utils.get_package_dir import get_package_dir, get_project_root
+
 
 class Settings:
     """Default settings for SPARQ with sensible defaults.

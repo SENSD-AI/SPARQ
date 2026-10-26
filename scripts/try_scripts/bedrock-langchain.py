@@ -1,7 +1,7 @@
-from langchain_aws import ChatBedrockConverse
-import boto3
-
 import os
+
+import boto3
+from langchain_aws import ChatBedrockConverse
 
 from sparq.settings_old import Settings
 

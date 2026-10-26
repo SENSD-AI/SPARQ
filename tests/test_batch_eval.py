@@ -9,12 +9,26 @@ from typing import cast
 from unittest.mock import AsyncMock, patch
 
 from eval.batch_eval import (
-    Question, create_batch, execute_batch, execute_run, load_questions, main, parse_args, persist_manifest,
-    update_batch_summary, write_json_atomic,
+    Question,
+    create_batch,
+    execute_batch,
+    execute_run,
+    load_questions,
+    main,
+    parse_args,
+    persist_manifest,
+    update_batch_summary,
+    write_json_atomic,
 )
 from sparq.architectures.v1.settings import V1Settings
 from sparq.architectures.v1.system import Agentic_system
-from sparq.schemas.output_schemas import BatchEvalOutput, BatchRunEntry, BatchStatus, RunStatus, SystemOutput
+from sparq.schemas.output_schemas import (
+    BatchEvalOutput,
+    BatchRunEntry,
+    BatchStatus,
+    RunStatus,
+    SystemOutput,
+)
 
 
 class TestBatchSummary(unittest.TestCase):

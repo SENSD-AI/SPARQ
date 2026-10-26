@@ -2,8 +2,8 @@ import shutil
 import tempfile
 import unittest
 
+from sparq.tools.python_repl.namespace import cleanup_ns, get_ns_path
 from sparq.tools.python_repl.python_repl_tool import make_python_repl_tool
-from sparq.tools.python_repl.namespace import get_ns_path, cleanup_ns
 
 
 class TestPythonReplTool(unittest.TestCase):

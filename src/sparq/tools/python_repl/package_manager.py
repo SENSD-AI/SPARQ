@@ -1,12 +1,12 @@
 """Package manager for safe code execution with whitelisted packages."""
 
-from pathlib import Path
 import shutil
 import subprocess
 import sys
-from typing import Optional
 import tomllib
+from pathlib import Path
 from threading import Lock
+from typing import Optional
 
 from sparq.logging_config import logger
 
