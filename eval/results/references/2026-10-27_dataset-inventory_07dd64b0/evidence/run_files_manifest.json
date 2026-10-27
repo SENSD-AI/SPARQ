@@ -1,0 +1,80 @@
+[
+  {
+    "path": "run/executor/docs/dataset_overview_comprehensive.txt",
+    "source_path": "/Users/zayan/tmp/sparq/output/27-10-2026_13-07-52/executor/docs/dataset_overview_comprehensive.txt",
+    "bytes": 24750,
+    "sha256": "9b9d22738eb13e00cb0284e73d98223fbe57cc5aa25433ff0f2ed6ab7c0b3ac0"
+  },
+  {
+    "path": "run/executor/docs/dataset_overview_executive_summary.txt",
+    "source_path": "/Users/zayan/tmp/sparq/output/27-10-2026_13-07-52/executor/docs/dataset_overview_executive_summary.txt",
+    "bytes": 12367,
+    "sha256": "4eba7d7e1490d1c1815f8677048ab9619aa6f9d1f0087465ef1c01f1be8dc6b4"
+  },
+  {
+    "path": "run/executor/figures/dataset_integration_workflow.png",
+    "source_path": "/Users/zayan/tmp/sparq/output/27-10-2026_13-07-52/executor/figures/dataset_integration_workflow.png",
+    "bytes": 404564,
+    "sha256": "08a99e093a92e869e6952c57a261dc9e2603f40c714d6571d1f25e616fd6e828"
+  },
+  {
+    "path": "run/executor/figures/dataset_overview_visualization.png",
+    "source_path": "/Users/zayan/tmp/sparq/output/27-10-2026_13-07-52/executor/figures/dataset_overview_visualization.png",
+    "bytes": 423982,
+    "sha256": "2c2dcbf294c384646eef5af6656f2d33e74430912e26f694284c73d74c89926b"
+  },
+  {
+    "path": "run/executor/figures/temporal_overlap_analysis.png",
+    "source_path": "/Users/zayan/tmp/sparq/output/27-10-2026_13-07-52/executor/figures/temporal_overlap_analysis.png",
+    "bytes": 249946,
+    "sha256": "5efaba94daf9050091db73120ef3f418ba1ccb838af0f0f9b636f330e061a7b7"
+  },
+  {
+    "path": "run/executor/index.json",
+    "source_path": "/Users/zayan/tmp/sparq/output/27-10-2026_13-07-52/executor/index.json",
+    "bytes": 371,
+    "sha256": "c2d725a3add76659e6ab45bde6a009ecb2771dd645e4c0259fea7b9ac42c7395"
+  },
+  {
+    "path": "run/final_answer.json",
+    "source_path": "/Users/zayan/tmp/sparq/output/27-10-2026_13-07-52/final_answer.json",
+    "bytes": 22772,
+    "sha256": "e7eed89eea1740eb6720374796d3b320728e84b25608ff9c032bc1f00c360fc4"
+  },
+  {
+    "path": "run/log.txt",
+    "source_path": "/Users/zayan/tmp/sparq/output/27-10-2026_13-07-52/log.txt",
+    "bytes": 50579,
+    "sha256": "83ba67f9b323853ec7d0e81373da58c5c4d67bf0ce1276892ead3b2b9599090e"
+  },
+  {
+    "path": "run/report/ref.bib",
+    "source_path": "/Users/zayan/tmp/sparq/output/27-10-2026_13-07-52/report/ref.bib",
+    "bytes": 889,
+    "sha256": "f194108f89c1a2075642d6f4e964d2dac3a2e77f3e66b7ae8c946f4d1a120431"
+  },
+  {
+    "path": "run/report/report.md",
+    "source_path": "/Users/zayan/tmp/sparq/output/27-10-2026_13-07-52/report/report.md",
+    "bytes": 25767,
+    "sha256": "229895b2c7afe38b2b1661088ad73a214514e27ce96bb54ca6e36b762a51fd5a"
+  },
+  {
+    "path": "run/report/report.pdf",
+    "source_path": "/Users/zayan/tmp/sparq/output/27-10-2026_13-07-52/report/report.pdf",
+    "bytes": 1438364,
+    "sha256": "fc884aedc4f23e106ce420c57e689c0a93983cb97ece8c359572946da4ebd843"
+  },
+  {
+    "path": "run/result.json",
+    "source_path": "/Users/zayan/tmp/sparq/output/27-10-2026_13-07-52/result.json",
+    "bytes": 24677,
+    "sha256": "1d84f40439151c717994f8aba289a0709abd965e3a012bff6b92c417ddd42bb6"
+  },
+  {
+    "path": "run/trace.json",
+    "source_path": "/Users/zayan/tmp/sparq/output/27-10-2026_13-07-52/trace.json",
+    "bytes": 35910,
+    "sha256": "79170c00f5d705abe80c1d04fb19f8632ec141e533ff9549c4549cb5ba02262d"
+  }
+]

@@ -58,3 +58,7 @@ docker-build.sh
 
 # Encrypted-only docs: plaintext stays local, only the .gpg ciphertext is committed
 docs/thesis_angle.md
+
+# Preserve evaluation references, including their JSON metadata.
+!eval/results/references/
+!eval/results/references/**

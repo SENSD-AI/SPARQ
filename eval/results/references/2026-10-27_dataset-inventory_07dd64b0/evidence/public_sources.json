@@ -1,0 +1,22 @@
+[
+  {
+    "title": "CDC/ATSDR SVI 2020 Documentation",
+    "url": "https://www.atsdr.cdc.gov/place-health/media/pdfs/2024/08/SVI2020Documentation_08.05.22.pdf",
+    "used_for": "16 factors and version-specific definitions; introduction and relevant variable/theme material inspected, not the entire document."
+  },
+  {
+    "title": "CDC/ATSDR SVI 2022 Documentation",
+    "url": "https://atsdr.cdc.gov/place-health/media/pdfs/2025/01/SVI2022Documentation.pdf",
+    "used_for": "16 factors and version-specific themes; introduction and relevant variable/theme material inspected, not the entire document."
+  },
+  {
+    "title": "SVI Data & Documentation Download",
+    "url": "https://www.atsdr.cdc.gov/place-health/php/svi/svi-data-documentation-download.html",
+    "used_for": "Theme changes and warnings about comparisons between versions."
+  },
+  {
+    "title": "Map the Meal Gap Methodology",
+    "url": "https://www.feedingamerica.org/research/map-the-meal-gap/how-we-got-the-map-data",
+    "used_for": "Publication/data-year pairing and methodology context."
+  }
+]

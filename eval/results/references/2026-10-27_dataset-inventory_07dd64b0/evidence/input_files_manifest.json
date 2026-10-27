@@ -1,0 +1,212 @@
+[
+  {
+    "dataset": "census_population",
+    "path_relative_to_dataset": "2020-2023.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/census_population/2020-2023.xlsx",
+    "bytes": 170197,
+    "sha256": "58c3e2dea35857422fad63591f20df04af7c77c42bf91af248d083ca0f5961b4"
+  },
+  {
+    "dataset": "census_population",
+    "path_relative_to_dataset": "states/mo_2020_to_2023.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/census_population/states/mo_2020_to_2023.xlsx",
+    "bytes": 16975,
+    "sha256": "e6c99588fff94f6ec656e0b8a7f4b30b6f0ebf3c2bb1793a7464ac5cf42722a5"
+  },
+  {
+    "dataset": "naco",
+    "path_relative_to_dataset": "links.txt",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/naco/links.txt",
+    "bytes": 167,
+    "sha256": "108b3c08682da4d98f9861422804b0ceb1c358d6ab503c40ea5627331dd47bfc"
+  },
+  {
+    "dataset": "nors",
+    "path_relative_to_dataset": "CDC NORS Data Release_instructions email.msg",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/nors/CDC NORS Data Release_instructions email.msg",
+    "bytes": 4002816,
+    "sha256": "df8d079c40a9c88f0c27197157b0517deb099a7e78936690fd495d86e6a2d018"
+  },
+  {
+    "dataset": "nors",
+    "path_relative_to_dataset": "NORS Data Documentation 20170811.pdf",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/nors/NORS Data Documentation 20170811.pdf",
+    "bytes": 255481,
+    "sha256": "8d4880eab00701eaae3dbb60c27d87e1b77aeaba98009e45d1a275d33e60af21"
+  },
+  {
+    "dataset": "nors",
+    "path_relative_to_dataset": "NORS Produced data/STATEFP_NORS.txt",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/nors/NORS Produced data/STATEFP_NORS.txt",
+    "bytes": 1177,
+    "sha256": "3dee995805934fe109f9e0afffc8353f07f869ca8f1fe7a468d1ba899a8fc3e6"
+  },
+  {
+    "dataset": "nors",
+    "path_relative_to_dataset": "NORS Produced data/TROU_20230317_For Release.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/nors/NORS Produced data/TROU_20230317_For Release.xlsx",
+    "bytes": 5208239,
+    "sha256": "8ed4c15eb2d5a27b828341fcbdffcf9873321af54524f892595fdcf00143f360"
+  },
+  {
+    "dataset": "nors",
+    "path_relative_to_dataset": "TROU_20230317_For Release2.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/nors/TROU_20230317_For Release2.xlsx",
+    "bytes": 4068284,
+    "sha256": "9dfc079b26a7d9d66d49e85c4ac3a5f218118675adb4af5470f460bf139ae4b4"
+  },
+  {
+    "dataset": "nors",
+    "path_relative_to_dataset": "data dictionary.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/nors/data dictionary.xlsx",
+    "bytes": 68202,
+    "sha256": "f961190b00e7eb383e24665c8e232db62eee78f5b3540478c832d12d29756a26"
+  },
+  {
+    "dataset": "pulsenet",
+    "path_relative_to_dataset": "Data Dictionary.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/pulsenet/Data Dictionary.xlsx",
+    "bytes": 20687,
+    "sha256": "21fd31eab03b209894183dfaa2fcbaf325bf2b75d112f65fe879d57d57dbaecd"
+  },
+  {
+    "dataset": "pulsenet",
+    "path_relative_to_dataset": "Export_1996-2000.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/pulsenet/Export_1996-2000.xlsx",
+    "bytes": 103660,
+    "sha256": "9da9f281d464ca97888c94df42a91838514b01c406e911ed6d60e6c2864c28ce"
+  },
+  {
+    "dataset": "pulsenet",
+    "path_relative_to_dataset": "Export_2001-2005.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/pulsenet/Export_2001-2005.xlsx",
+    "bytes": 2392926,
+    "sha256": "e00ed2507a0823467d1777d55df6b2de8dad16f233c36fa169825df717f4e0a7"
+  },
+  {
+    "dataset": "pulsenet",
+    "path_relative_to_dataset": "Export_2006-2010.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/pulsenet/Export_2006-2010.xlsx",
+    "bytes": 8184825,
+    "sha256": "55a15b51747c9b77a75c54bb4e28aafcf2f60d99ad615124c61e2a8b6e78bac9"
+  },
+  {
+    "dataset": "pulsenet",
+    "path_relative_to_dataset": "Export_2011-2015.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/pulsenet/Export_2011-2015.xlsx",
+    "bytes": 12606670,
+    "sha256": "6f584cbe90c6e03a6effa3f85bc228b1b3395f0fc0e7a60777aa5bb637f4478e"
+  },
+  {
+    "dataset": "pulsenet",
+    "path_relative_to_dataset": "Export_2016-2019.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/pulsenet/Export_2016-2019.xlsx",
+    "bytes": 12621872,
+    "sha256": "c96165eb1fc157e83c77937778d24fdb771789c7b066372e9befa9dcf102be15"
+  },
+  {
+    "dataset": "pulsenet",
+    "path_relative_to_dataset": "Export_2020-2023.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/pulsenet/Export_2020-2023.xlsx",
+    "bytes": 9861459,
+    "sha256": "396ff2e0dd8983e3035c309e798f25bfe7cd5fbcf6384eb0f3d67908313a7915"
+  },
+  {
+    "dataset": "map_the_meal_gap",
+    "path_relative_to_dataset": "MMG2011_2009Data_ToShare.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/map_the_meal_gap/MMG2011_2009Data_ToShare.xlsx",
+    "bytes": 506098,
+    "sha256": "b69145f8375efb638f52ecf386ad828e04bd7e6e83f26dda66d85dd68c7c2af6"
+  },
+  {
+    "dataset": "map_the_meal_gap",
+    "path_relative_to_dataset": "MMG2012_2010Data_ToShare.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/map_the_meal_gap/MMG2012_2010Data_ToShare.xlsx",
+    "bytes": 4023148,
+    "sha256": "054311721bc66347a2fb332e9c15107fba241e3657eda172d90cecc0c854d5a2"
+  },
+  {
+    "dataset": "map_the_meal_gap",
+    "path_relative_to_dataset": "MMG2013_2011Data_ToShare.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/map_the_meal_gap/MMG2013_2011Data_ToShare.xlsx",
+    "bytes": 509063,
+    "sha256": "5d25f22f12e006b91753afa947674857ab70cb5d89bbe873b8b7faecdfb254e1"
+  },
+  {
+    "dataset": "map_the_meal_gap",
+    "path_relative_to_dataset": "MMG2014_2012Data_ToShare.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/map_the_meal_gap/MMG2014_2012Data_ToShare.xlsx",
+    "bytes": 536927,
+    "sha256": "ef1dc4db472481b4fb6de5216d271f76236497df48d14cb9860daae39a83d5cc"
+  },
+  {
+    "dataset": "map_the_meal_gap",
+    "path_relative_to_dataset": "MMG2015_2013Data_ToShare.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/map_the_meal_gap/MMG2015_2013Data_ToShare.xlsx",
+    "bytes": 499809,
+    "sha256": "9a471214d217fd8da2197a662001e00bd12855302f00fe66944408d217108e81"
+  },
+  {
+    "dataset": "map_the_meal_gap",
+    "path_relative_to_dataset": "MMG2016_2014Data_ToShare.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/map_the_meal_gap/MMG2016_2014Data_ToShare.xlsx",
+    "bytes": 500422,
+    "sha256": "faf2015cd9825b9fb0a55b8bec848e969b40f5c17958eb47b44bbe2c57112a4b"
+  },
+  {
+    "dataset": "map_the_meal_gap",
+    "path_relative_to_dataset": "MMG2017_2015Data_ToShare.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/map_the_meal_gap/MMG2017_2015Data_ToShare.xlsx",
+    "bytes": 497088,
+    "sha256": "af7730f90670c27e4ba43b884356b26f2c0883253b131f0049984ff1687202df"
+  },
+  {
+    "dataset": "map_the_meal_gap",
+    "path_relative_to_dataset": "MMG2018_2016Data_ToShare.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/map_the_meal_gap/MMG2018_2016Data_ToShare.xlsx",
+    "bytes": 495968,
+    "sha256": "326794c9a6fd3a6f47df18342053552d330559504c2ad3052085ae03dfa5497c"
+  },
+  {
+    "dataset": "map_the_meal_gap",
+    "path_relative_to_dataset": "MMG2019_2017Data_ToShare.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/map_the_meal_gap/MMG2019_2017Data_ToShare.xlsx",
+    "bytes": 494221,
+    "sha256": "3832985632b71dab28426d7dc85de65209685f50f51d3e52a6d41998239e1d25"
+  },
+  {
+    "dataset": "map_the_meal_gap",
+    "path_relative_to_dataset": "MMG2020_2018Data_ToShare.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/map_the_meal_gap/MMG2020_2018Data_ToShare.xlsx",
+    "bytes": 496287,
+    "sha256": "e4403181aee2a5a43216b3063126a38de53c5a06161d6044aa8e28f5fcec107f"
+  },
+  {
+    "dataset": "map_the_meal_gap",
+    "path_relative_to_dataset": "MMG2021_2019Data_ToShare.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/map_the_meal_gap/MMG2021_2019Data_ToShare.xlsx",
+    "bytes": 500818,
+    "sha256": "16244f0b5bb50e4f40d675ad03eb852e31d758971fd4f4347d46666d0275a50a"
+  },
+  {
+    "dataset": "map_the_meal_gap",
+    "path_relative_to_dataset": "MMG2022_2020-2019Data_ToShare.xlsx",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/map_the_meal_gap/MMG2022_2020-2019Data_ToShare.xlsx",
+    "bytes": 1156823,
+    "sha256": "5908e0fdc0502acb51242af4783029824a1a58804f7f4191f06a25701ed475e8"
+  },
+  {
+    "dataset": "social_vulnerability_index",
+    "path_relative_to_dataset": "SVI_2020_US_county.csv",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/social_vulnerability_index/SVI_2020_US_county.csv",
+    "bytes": 2284676,
+    "sha256": "96cad6a67f56fbbed8a1d04731027c6692143e9a086f129e3b4dcd9587b59482"
+  },
+  {
+    "dataset": "social_vulnerability_index",
+    "path_relative_to_dataset": "SVI_2022_US_county.csv",
+    "source_path": "/Users/zayan/.config/sparq/data/datasets/social_vulnerability_index/SVI_2022_US_county.csv",
+    "bytes": 2301479,
+    "sha256": "4c28ea547498aa92bcbdf84b686faf1032bcc070d10d06540b1a4dfab18c6fd7"
+  }
+]

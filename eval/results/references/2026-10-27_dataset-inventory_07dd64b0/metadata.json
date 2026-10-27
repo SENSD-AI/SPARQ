@@ -1,0 +1,108 @@
+{
+  "reference_id": "2026-10-27_dataset-inventory_07dd64b0",
+  "reference_status": "assistant-reviewed candidate; not human-adjudicated gold",
+  "collected_at_utc": "2026-10-27T18:33:20.393883+00:00",
+  "source_run_directory": "/Users/zayan/tmp/sparq/output/27-10-2026_13-07-52",
+  "run_id": "07dd64b0-3469-4fd8-9e10-311f02e8a015",
+  "query": "What datasets do we have and what do they represent?",
+  "time_started_original": "2026-10-27T13:07:52.754860",
+  "time_ended_original": "2026-10-27T13:15:10.769716",
+  "original_timestamps_include_timezone": false,
+  "interpreted_timezone": "America/Chicago",
+  "timezone_note": "Interpretation uses session context; the original timestamps do not encode a timezone.",
+  "duration_seconds": 438.014856,
+  "difficulty": 0,
+  "ablation_config": {},
+  "models": {
+    "router": {
+      "provider": "aws_bedrock",
+      "model_name": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "max_tokens": null,
+      "temperature": null,
+      "top_p": null,
+      "reasoning": null,
+      "recursion_limit": 20
+    },
+    "planner": {
+      "provider": "aws_bedrock",
+      "model_name": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      "max_tokens": null,
+      "temperature": null,
+      "top_p": null,
+      "reasoning": null,
+      "recursion_limit": 20
+    },
+    "executor": {
+      "provider": "aws_bedrock",
+      "model_name": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      "max_tokens": null,
+      "temperature": null,
+      "top_p": null,
+      "reasoning": null,
+      "recursion_limit": 200
+    },
+    "aggregator": {
+      "provider": "aws_bedrock",
+      "model_name": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "max_tokens": null,
+      "temperature": null,
+      "top_p": null,
+      "reasoning": null,
+      "recursion_limit": 20
+    },
+    "vision_model": {
+      "provider": "aws_bedrock",
+      "model_name": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      "max_tokens": null,
+      "temperature": null,
+      "top_p": null,
+      "reasoning": null,
+      "recursion_limit": 20
+    }
+  },
+  "recorded_usage": {
+    "token_out": null,
+    "cost": null
+  },
+  "evaluation_context": null,
+  "existing_judge_score": null,
+  "existing_judge_review": null,
+  "execution_results_reported_success": [
+    true
+  ],
+  "saved_trace_message_types": [
+    "human",
+    "ai"
+  ],
+  "worker_tool_call_history_available_in_saved_trace": false,
+  "checkout_head_at_collection": "9dd7e6d1ede863d7a5c37f7c3dea4b3c90e7fc44",
+  "worktree_dirty_at_collection": true,
+  "execution_code_revision": null,
+  "code_revision_note": "Collection checkout state is not proof of the exact code used during the run; the working tree contains uncommitted changes.",
+  "data_manifest_from_run": {
+    "census_population": {
+      "cache_location": "/Users/zayan/.config/sparq/data/datasets/census_population",
+      "repo_id": "zayanhugsAI/census_population"
+    },
+    "naco": {
+      "cache_location": "/Users/zayan/.config/sparq/data/datasets/naco",
+      "repo_id": "zayanhugsAI/naco"
+    },
+    "nors": {
+      "cache_location": "/Users/zayan/.config/sparq/data/datasets/nors",
+      "repo_id": "zayanhugsAI/nors"
+    },
+    "pulsenet": {
+      "cache_location": "/Users/zayan/.config/sparq/data/datasets/pulsenet",
+      "repo_id": "zayanhugsAI/pulsenet"
+    },
+    "map_the_meal_gap": {
+      "cache_location": "/Users/zayan/.config/sparq/data/datasets/map_the_meal_gap",
+      "repo_id": "zayanhugsAI/map_the_meal_gap"
+    },
+    "social_vulnerability_index": {
+      "cache_location": "/Users/zayan/.config/sparq/data/datasets/social_vulnerability_index",
+      "repo_id": "zayanhugsAI/social_vulnerability_index"
+    }
+  }
+}

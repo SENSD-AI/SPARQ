@@ -1,0 +1,218 @@
+[
+  {
+    "id": "F01",
+    "severity": "high",
+    "classification": "confirmed_error",
+    "title": "NORS schema contains nonexistent fields and sheets",
+    "report_path": "run/report/report.md",
+    "report_lines": {
+      "start": 85,
+      "end": 87
+    },
+    "claim_excerpt_or_paraphrase": "IllCount, HospCount, DeathCount; Foods, Settings, Water",
+    "expected_correction_or_qualification": "Use the actual workbook schema: TotalCases, HospitalNum, DeathsNum; FB_FoodMain, FB_FoodImplicated, Setting.",
+    "evidence_key": "nors",
+    "origin_assessment": "generated worker documentation; not present in the supplied short summary",
+    "origin_assessment_status": "best-effort comparison of supplied summaries, worker artifacts, and final report; exact causal attribution unavailable",
+    "reviewer": "assistant",
+    "human_adjudicated": false
+  },
+  {
+    "id": "F02",
+    "severity": "high",
+    "classification": "confirmed_error",
+    "title": "All NORS records called foodborne outbreaks",
+    "report_path": "run/report/report.md",
+    "report_lines": {
+      "start": 83,
+      "end": 83
+    },
+    "claim_excerpt_or_paraphrase": "3,950 documented foodborne disease outbreak events",
+    "expected_correction_or_qualification": "Report 3,950 records, of which 3,191 are Food, 266 Animal Contact, and 493 Indeterminate/Other/Unknown.",
+    "evidence_key": "nors",
+    "origin_assessment": "generated worker documentation; supplied summary said Salmonella outbreaks",
+    "origin_assessment_status": "best-effort comparison of supplied summaries, worker artifacts, and final report; exact causal attribution unavailable",
+    "reviewer": "assistant",
+    "human_adjudicated": false
+  },
+  {
+    "id": "F03",
+    "severity": "medium",
+    "classification": "confirmed_error",
+    "title": "Census loaded rows mislabeled as counties",
+    "report_path": "run/report/report.md",
+    "report_lines": {
+      "start": 101,
+      "end": 101
+    },
+    "claim_excerpt_or_paraphrase": "3,151 US counties",
+    "expected_correction_or_qualification": "There are 3,144 county rows, one national aggregate, and six footer rows.",
+    "evidence_key": "census",
+    "origin_assessment": "inherited from supplied summary and repeated as a verified county count",
+    "origin_assessment_status": "best-effort comparison of supplied summaries, worker artifacts, and final report; exact causal attribution unavailable",
+    "reviewer": "assistant",
+    "human_adjudicated": false
+  },
+  {
+    "id": "F04",
+    "severity": "medium",
+    "classification": "confirmed_error",
+    "title": "Incorrect SVI factor count, themes, and uniform row count",
+    "report_path": "run/report/report.md",
+    "report_lines": {
+      "start": 132,
+      "end": 134
+    },
+    "claim_excerpt_or_paraphrase": "15 social factors; 3,143 counties for both years; older theme names",
+    "expected_correction_or_qualification": "Use 16 factors; 3,143 county rows in 2020 and 3,144 in 2022; Household Characteristics and Racial & Ethnic Minority Status for themes 2 and 3.",
+    "evidence_key": "svi",
+    "origin_assessment": "row count inherited from summary; factor/theme descriptions added in worker documentation",
+    "origin_assessment_status": "best-effort comparison of supplied summaries, worker artifacts, and final report; exact causal attribution unavailable",
+    "reviewer": "assistant",
+    "human_adjudicated": false
+  },
+  {
+    "id": "F05",
+    "severity": "high",
+    "classification": "unsupported_quantification",
+    "title": "Numerical quality and join scores lack documented derivation",
+    "report_path": "run/report/report.md",
+    "report_lines": {
+      "start": 175,
+      "end": 183
+    },
+    "claim_excerpt_or_paraphrase": "0–1 data-quality scores and Poor/Fair/Excellent join reliability scores",
+    "expected_correction_or_qualification": "Supply a reproducible rubric and measurements or label these explicitly as subjective illustrations; do not treat them as measured quality.",
+    "evidence_key": "figure_2_and_saved_trace",
+    "origin_assessment": "generated figure and worker documentation; calculation provenance not retained",
+    "origin_assessment_status": "best-effort comparison of supplied summaries, worker artifacts, and final report; exact causal attribution unavailable",
+    "reviewer": "assistant",
+    "human_adjudicated": false
+  },
+  {
+    "id": "F06",
+    "severity": "high",
+    "classification": "unsupported_quantification",
+    "title": "Unsupported empirical Census match-rate claim",
+    "report_path": "run/report/report.md",
+    "report_lines": {
+      "start": 216,
+      "end": 216
+    },
+    "claim_excerpt_or_paraphrase": "typically yields <95% match rates",
+    "expected_correction_or_qualification": "Remove the percentage unless a measured join result or suitable source supports it.",
+    "evidence_key": "saved_trace_and_artifact_inventory",
+    "origin_assessment": "the worker document recommends aiming above 95%; the report turns this into a typical observed rate",
+    "origin_assessment_status": "best-effort comparison of supplied summaries, worker artifacts, and final report; exact causal attribution unavailable",
+    "reviewer": "assistant",
+    "human_adjudicated": false
+  },
+  {
+    "id": "F07",
+    "severity": "medium",
+    "classification": "confirmed_error",
+    "title": "FIPS source storage conflated with parser inference",
+    "report_path": "run/report/report.md",
+    "report_lines": {
+      "start": 128,
+      "end": 145
+    },
+    "claim_excerpt_or_paraphrase": "SVI is stored as integer; MMG is consistently zero-padded strings",
+    "expected_correction_or_qualification": "The checked SVI CSVs contain 01001; default pandas inference converts it. MMG cells vary between strings and numbers, so configure and validate imports consistently.",
+    "evidence_key": "svi_and_mmg_sample",
+    "origin_assessment": "supplied summary partly conflates dtype inference with source representation",
+    "origin_assessment_status": "best-effort comparison of supplied summaries, worker artifacts, and final report; exact causal attribution unavailable",
+    "reviewer": "assistant",
+    "human_adjudicated": false
+  },
+  {
+    "id": "F08",
+    "severity": "medium",
+    "classification": "invalid_aggregation",
+    "title": "Undefined combined record total",
+    "report_path": "run/report/report.md",
+    "report_lines": {
+      "start": 39,
+      "end": 39
+    },
+    "claim_excerpt_or_paraphrase": "~592,000 total records across five datasets",
+    "expected_correction_or_qualification": "Report counts separately by observational unit and year. The table mixes isolates, outbreaks, county rows, and county-year counts; its naive sum is approximately 595,409, not 592,000.",
+    "evidence_key": "report_table_and_verified_counts",
+    "origin_assessment": "worker-generated total repeated downstream",
+    "origin_assessment_status": "best-effort comparison of supplied summaries, worker artifacts, and final report; exact causal attribution unavailable",
+    "reviewer": "assistant",
+    "human_adjudicated": false
+  },
+  {
+    "id": "F09",
+    "severity": "low",
+    "classification": "confirmed_error",
+    "title": "Calendar-year counts inconsistent with inclusive counting",
+    "report_path": "run/report/report.md",
+    "report_lines": {
+      "start": 167,
+      "end": 168
+    },
+    "claim_excerpt_or_paraphrase": "1996–2023: 27 years; 1998–2021: 23 years",
+    "expected_correction_or_qualification": "These ranges contain 28 and 24 calendar years respectively. A 27- or 23-year elapsed difference should not be mixed with inclusive counts used elsewhere.",
+    "evidence_key": "calendar_year_arithmetic",
+    "origin_assessment": "worker documentation arithmetic repeated downstream",
+    "origin_assessment_status": "best-effort comparison of supplied summaries, worker artifacts, and final report; exact causal attribution unavailable",
+    "reviewer": "assistant",
+    "human_adjudicated": false
+  },
+  {
+    "id": "F10",
+    "severity": "medium",
+    "classification": "confirmed_error",
+    "title": "MMG suggested column search misses a real rate field",
+    "report_path": "run/report/report.md",
+    "report_lines": {
+      "start": 118,
+      "end": 124
+    },
+    "claim_excerpt_or_paraphrase": "Find rate columns by searching for insecurity",
+    "expected_correction_or_qualification": "The checked 2009 workbook uses FI Rate, which does not contain insecurity. Use inspected, year-specific field mappings or validated alternatives.",
+    "evidence_key": "mmg_sample",
+    "origin_assessment": "inherited from supplied summary",
+    "origin_assessment_status": "best-effort comparison of supplied summaries, worker artifacts, and final report; exact causal attribution unavailable",
+    "reviewer": "assistant",
+    "human_adjudicated": false
+  },
+  {
+    "id": "F11",
+    "severity": "medium",
+    "classification": "methodological_limitation",
+    "title": "Integration advice omits geographic-vintage reconciliation",
+    "report_path": "run/report/report.md",
+    "report_lines": {
+      "start": 195,
+      "end": 206
+    },
+    "claim_excerpt_or_paraphrase": "FIPS standardization makes geographic integration straightforward",
+    "expected_correction_or_qualification": "Reconcile the eight Connecticut county FIPS in 2020 with nine planning-region FIPS in 2022 before treating cross-vintage joins as comparable. This is a missing qualification, not a failed measured join.",
+    "evidence_key": "svi",
+    "origin_assessment": "omission in recommended integration workflow",
+    "origin_assessment_status": "best-effort comparison of supplied summaries, worker artifacts, and final report; exact causal attribution unavailable",
+    "reviewer": "assistant",
+    "human_adjudicated": false
+  },
+  {
+    "id": "F12",
+    "severity": "medium",
+    "classification": "unsubstantiated_verification",
+    "title": "Methods overstate inspection and verification",
+    "report_path": "run/report/report.md",
+    "report_lines": {
+      "start": 49,
+      "end": 49
+    },
+    "claim_excerpt_or_paraphrase": "Each dataset was inspected for ... data quality ... completeness",
+    "expected_correction_or_qualification": "Distinguish supplied summaries from direct checks and preserve tool-level evidence. Saved trace messages contain only human/AI final messages; specific schema/count errors contradict blanket verification.",
+    "evidence_key": "trace_and_verified_facts",
+    "origin_assessment": "saved worker result also asserts all numeric claims were verified; exact tool history unavailable",
+    "origin_assessment_status": "best-effort comparison of supplied summaries, worker artifacts, and final report; exact causal attribution unavailable",
+    "reviewer": "assistant",
+    "human_adjudicated": false
+  }
+]

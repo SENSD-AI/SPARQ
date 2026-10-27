@@ -1,0 +1,3 @@
+# Preserve the archived run files byte-for-byte across platforms.
+*/run/** -text
+*.pdf binary

@@ -1,0 +1,559 @@
+====================================================================================================
+COMPREHENSIVE DATASET OVERVIEW
+====================================================================================================
+
+This document provides a detailed overview of all available datasets in the data repository,
+including descriptions, temporal and geographic coverage, key columns, loading instructions,
+and critical considerations for analysis and cross-dataset integration.
+
+====================================================================================================
+DATASET 1: CENSUS_POPULATION
+====================================================================================================
+
+Repository ID: zayanhugsAI/census_population
+
+Description:
+  US Census county population estimates 2020-2023. Annual population estimates for US counties
+  without FIPS codes included in the dataset.
+
+Data Scale:
+  • Total Records: 3,151 counties
+  • Temporal Coverage: 2020-2023 (4 years)
+  • Geographic Coverage: County level (US)
+  • Data Granularity: Annual county population estimates
+
+Key Columns:
+  • Unnamed: 0 (county/state name)
+  • Unnamed: 1 (additional identifier)
+  • 2020 (population estimate)
+  • 2021 (population estimate)
+  • 2022 (population estimate)
+  • 2023 (population estimate)
+
+How to Load:
+  pd.read_excel('2020-2023.xlsx', sheet_name='CO-EST2023-POP', header=3)
+
+Join Key(s):
+  Unnamed: 0 (name string, strip leading '.' for counties)
+
+⚠️  Important Quirks & Considerations:
+  1. No FIPS codes available - must join on county name strings
+  2. County names have leading '.' that must be stripped for joins
+  3. Name-based joins are less reliable than FIPS-based joins
+  4. Higher risk of mismatches due to naming variations
+
+Typical Use Cases:
+  • Population denominators for rate calculations (incidence, prevalence)
+  • Demographic context for health outcomes
+  • Standardizing counts across counties of different sizes
+
+====================================================================================================
+DATASET 2: NACO
+====================================================================================================
+
+Repository ID: zayanhugsAI/naco
+
+Description:
+  NACo (National Association of Counties) county economics data repository
+
+Data Scale:
+  • Total Records: 0 (NO DATA AVAILABLE)
+  • Temporal Coverage: Unknown
+  • Geographic Coverage: County level (US)
+  • Data Granularity: N/A - no tabular data
+
+Key Columns: None
+
+How to Load:
+  N/A - only links.txt file present
+
+Join Key(s):
+  N/A
+
+⚠️  CRITICAL WARNING:
+  1. NO actual tabular data available locally
+  2. Contains only a links.txt file with URLs to external resources
+  3. MUST BE SKIPPED for any analysis requiring data
+  4. Do not attempt to load or process this dataset
+
+Typical Use Cases:
+  • Not usable for analysis - no data present
+
+====================================================================================================
+DATASET 3: NORS (National Outbreak Reporting System)
+====================================================================================================
+
+Repository ID: zayanhugsAI/nors
+
+Description:
+  CDC National Outbreak Reporting System (NORS) - Salmonella outbreaks 1998-2021. 
+  Complex relational database with 39 interconnected sheets containing detailed epidemiological
+  information about foodborne disease outbreaks. Each outbreak is tracked with a unique CDCID
+  that links information across multiple dimensions (etiology, foods, exposures, settings, etc.).
+
+Data Scale:
+  • Total Records: 3,950 outbreak events
+  • Temporal Coverage: 1998-2021 (23 years)
+  • Geographic Coverage: State and County level (US)
+  • Data Granularity: Individual outbreak events with detailed epidemiological information
+
+Key Columns (NORSMain sheet):
+  • CDCID (unique outbreak identifier - PRIMARY KEY for all 39 sheets)
+  • yearfirstill (year of first illness onset)
+  • monthfirstill (month of first illness onset)
+  • ExposureState (state where exposure occurred)
+  • ExposureCounty (county where exposure occurred)
+  • IllCount (number of illnesses)
+  • HospCount (number of hospitalizations)
+  • DeathCount (number of deaths)
+
+Additional Important Sheets:
+  • GenEtiology: Contains serotype information (join on CDCID)
+  • Foods: Implicated food vehicles
+  • Settings: Exposure settings and locations
+  • Water: Water-related exposures
+
+How to Load:
+  Main sheet: pd.read_excel('TROU_20230317_For Release2.xlsx', sheet_name='NORSMain')
+  Other sheets: pd.read_excel('TROU_20230317_For Release2.xlsx', sheet_name='GenEtiology')
+  [Repeat for each of 39 sheets as needed]
+
+Join Key(s):
+  • Primary: CDCID (links all 39 sheets together)
+  • Geographic: ExposureState, ExposureCounty
+  • Temporal: yearfirstill, monthfirstill
+
+⚠️  Important Quirks & Considerations:
+  1. Complex relational structure with 39 sheets - requires careful joins via CDCID
+  2. Serotype information is NOT in NORSMain - must join from GenEtiology sheet on CDCID
+  3. ExposureCounty uses '***' for suppressed/missing data (privacy protection)
+  4. Multiple sheets contain complementary information about each outbreak
+  5. Rich epidemiological detail but requires understanding of sheet relationships
+  6. Not all outbreaks have information in all sheets (incomplete data)
+  7. Some outbreaks span multiple counties/states
+  8. Data collection methods and completeness improved over time
+
+Typical Use Cases:
+  • Outbreak investigation analysis (size, severity, duration)
+  • Temporal trends in foodborne illness outbreaks
+  • Geographic outbreak patterns and hotspot identification
+  • Serotype-specific outbreak analysis
+  • Food vehicle attribution studies
+  • Public health intervention effectiveness
+
+====================================================================================================
+DATASET 4: PULSENET
+====================================================================================================
+
+Repository ID: zayanhugsAI/pulsenet
+
+Description:
+  CDC PulseNet Salmonella laboratory surveillance data 1996-2023. Individual isolate-level 
+  records from clinical and environmental samples submitted to the national molecular 
+  surveillance network. This is the largest dataset with over half a million isolate records.
+
+Data Scale:
+  • Total Records: 582,022 laboratory isolates
+  • Temporal Coverage: 1996-2023 (27 years)
+  • Geographic Coverage: County and State level (US)
+  • Data Granularity: Individual laboratory isolates (one row per sample)
+
+Key Columns:
+  • Serotype (Salmonella serotype)
+  • SourceState (state where sample collected)
+  • SourceCounty (county where sample collected)
+  • IsolatDate (date of isolation - datetime)
+  • Outbreak (outbreak association indicator)
+  • LabID (laboratory identifier)
+  • SourceType (human, animal, food, environmental)
+  • PatientSex (patient sex for clinical isolates)
+  • PatientAge (patient age for clinical isolates)
+
+How to Load:
+  # Must concatenate all 6 files
+  import glob
+  files = glob.glob('Export_*.xlsx')
+  df = pd.concat([pd.read_excel(f) for f in files], ignore_index=True)
+
+Join Key(s):
+  • Geographic: SourceState, SourceCounty
+  • Temporal: IsolatDate
+  • Linkage to outbreaks: Outbreak indicator, CDCID (if available)
+
+⚠️  Important Quirks & Considerations:
+  1. LARGE DATASET: 582,022 records across 6 separate Excel files - MUST concatenate all
+  2. SourceType and PatientSex require normalization: .str.upper().str.strip() 
+     (inconsistent capitalization and whitespace)
+  3. IsolatDate is datetime type but stored as dtype=object - requires pd.to_datetime() conversion
+  4. All 6 Export_*.xlsx files must be concatenated for complete dataset
+  5. Memory-intensive due to size - may need chunking or dtype optimization for some operations
+  6. Not all isolates have county information (missing SourceCounty values)
+  7. Mix of clinical (human) and non-clinical (food, animal, environmental) isolates
+  8. Outbreak field indicates association with known outbreak but not all outbreak isolates are flagged
+  9. Age fields may have quality issues (outliers, missing values)
+
+Typical Use Cases:
+  • Serotype surveillance and trends over time
+  • Temporal trends in isolate submissions
+  • Geographic distribution of Salmonella types
+  • Outbreak vs sporadic case comparison
+  • Source attribution analysis (human vs non-human)
+  • Demographic patterns in clinical isolates
+
+====================================================================================================
+DATASET 5: MAP_THE_MEAL_GAP
+====================================================================================================
+
+Repository ID: zayanhugsAI/map_the_meal_gap
+
+Description:
+  Feeding America's Map the Meal Gap - county-level food insecurity rates and related economic
+  indicators, 2009-2020. Published annually with a 2-year reporting lag. Contains 12 annual 
+  files with varying structures and column names.
+
+Data Scale:
+  • Total Records: ~3,143 counties per year (varies slightly by year)
+  • Special case: 2022 file has 6,285 rows covering both 2019 AND 2020 combined
+  • Temporal Coverage: 2009-2020 (12 years of data)
+  • Geographic Coverage: County level (US)
+  • Data Granularity: Annual county food insecurity estimates
+
+Key Columns (names vary by year):
+  • FIPS (county FIPS code - 5 digits)
+  • State (state name)
+  • County (county name)
+  • Food insecurity rate column (name varies: e.g., "Overall Food Insecurity Rate", 
+    "Food Insecurity Rate", "% Food Insecure")
+  • Child food insecurity rate (similar naming variations)
+  • Population estimates
+  • Number of food insecure persons
+
+How to Load:
+  # File naming pattern: MMG{publication_year}_{data_year}Data_ToShare.xlsx
+  # Example: MMG_2011_2009.xlsx contains 2009 data published in 2011
+  
+  # Year-specific loading (sheet names vary):
+  df_2009 = pd.read_excel('MMG_2011_2009Data_ToShare.xlsx', sheet_name=<varies>)
+  df_2018 = pd.read_excel('MMG_2020_2018Data_ToShare.xlsx', sheet_name=<varies>, header=1)
+  
+  # Must inspect sheet names for each file:
+  sheet_names = pd.ExcelFile(filename).sheet_names
+
+Join Key(s):
+  • Primary: FIPS (5-digit county FIPS code as string)
+  • Supplementary: State, County (for validation)
+
+⚠️  Important Quirks & Considerations:
+  1. 2-YEAR REPORTING LAG: MMG_2011_2009 means data published in 2011 about 2009
+     - Be very careful with year references
+  2. Column names change EVERY year - must dynamically search for 'insecurity' in column names
+  3. Sheet names vary by year - cannot use consistent sheet name across years
+  4. 2018 file ONLY: requires header=1 instead of default header=0
+  5. 2022 file is SPECIAL: covers both 2019 AND 2020 in single file (6,285 rows, not ~3,143)
+  6. Inconsistent data structure requires year-specific handling code
+  7. Some years have multiple food insecurity measures (overall, child, senior)
+  8. FIPS should be treated as string with zero-padding
+  9. Food insecurity rates are percentages (typically 0-30% range)
+  10. Missing data for some territories and special jurisdictions
+
+Typical Use Cases:
+  • Social determinant of health analysis
+  • Food access disparities and geographic patterns
+  • Correlation with health outcomes (e.g., disease incidence)
+  • Economic vulnerability assessment
+  • Resource allocation and program planning
+  • Time trend analysis of food insecurity
+
+====================================================================================================
+DATASET 6: SOCIAL VULNERABILITY INDEX (SVI)
+====================================================================================================
+
+Repository ID: zayanhugsAI/social_vulnerability_index
+
+Description:
+  CDC/ATSDR Social Vulnerability Index (SVI) - comprehensive county-level vulnerability 
+  metrics across multiple domains. The SVI ranks counties on 15 social factors grouped into 
+  four themes: Socioeconomic Status, Household Composition & Disability, Minority Status & 
+  Language, and Housing Type & Transportation. Contains 158 columns of detailed sociodemographic data.
+
+Data Scale:
+  • Total Records: 3,143 counties
+  • Temporal Coverage: 2020, 2022 (two snapshot years only)
+  • Geographic Coverage: County level (US)
+  • Data Granularity: County-level vulnerability indices and underlying demographic/socioeconomic variables
+
+Key Columns:
+  • FIPS (county FIPS code - integer format, requires zero-padding)
+  • STATE (state name)
+  • ST_ABBR (state abbreviation)
+  • COUNTY (county name)
+  • E_TOTPOP (total population estimate)
+  • RPL_THEMES (overall vulnerability ranking: 0=least vulnerable, 1=most vulnerable)
+  • RPL_THEME1 (socioeconomic status theme rank)
+  • RPL_THEME2 (household composition theme rank)
+  • RPL_THEME3 (minority status & language theme rank)
+  • RPL_THEME4 (housing & transportation theme rank)
+
+Column Naming Convention (158 total columns):
+  • E_ prefix = Estimate (raw count)
+    Example: E_POV (persons below poverty)
+  • EP_ prefix = Percentage
+    Example: EP_POV (percentage below poverty)
+  • EPL_ prefix = Percentile (0-1 scale)
+    Example: EPL_POV (poverty percentile rank)
+  • RPL_ prefix = Overall Ranking (0-1 scale, 0=lowest vulnerability)
+    Example: RPL_THEMES (summary vulnerability rank)
+
+How to Load:
+  df_2020 = pd.read_csv('SVI_2020_US_county.csv')
+  df_2022 = pd.read_csv('SVI_2022_US_county.csv')
+
+Join Key(s):
+  • FIPS (MUST zero-pad to 5 digits: df['FIPS'].astype(str).str.zfill(5))
+
+⚠️  Important Quirks & Considerations:
+  1. FIPS stored as INTEGER - MUST zero-pad to 5 digits for joins: .astype(str).str.zfill(5)
+  2. 158 columns with systematic naming convention (E_, EP_, EPL_, RPL_ prefixes)
+  3. Understanding prefix meanings is CRITICAL for correct interpretation
+  4. RPL_THEMES is the primary overall summary vulnerability measure (0-1 continuous)
+  5. Missing values coded as -999 for some jurisdictions - MUST filter before analysis
+  6. Only TWO years available (2020, 2022) - very limited temporal analysis capability
+  7. RPL values are percentile ranks (0=lowest vulnerability, 1=highest)
+  8. Higher RPL values = HIGHER vulnerability (opposite of what some expect)
+  9. Some territories and special jurisdictions may be excluded
+  10. Based on American Community Survey (ACS) 5-year estimates
+
+Four Vulnerability Themes:
+  Theme 1 - Socioeconomic Status:
+    • Below poverty, unemployed, income, no high school diploma
+  Theme 2 - Household Composition & Disability:
+    • Aged 65+, aged 17 or younger, disability, single parent households
+  Theme 3 - Minority Status & Language:
+    • Minority, speaks English "less than well"
+  Theme 4 - Housing Type & Transportation:
+    • Multi-unit structures, mobile homes, crowding, no vehicle, group quarters
+
+Typical Use Cases:
+  • Health equity analysis and disparities research
+  • Community vulnerability assessment
+  • Risk factor identification for disease outcomes
+  • Resource allocation and prioritization
+  • Emergency preparedness planning
+  • Social determinants of health research
+
+====================================================================================================
+CROSS-DATASET INTEGRATION STRATEGIES
+====================================================================================================
+
+1. TEMPORAL OVERLAP ANALYSIS:
+
+   Dataset                    Years Available       Overlapping Period
+   ─────────────────────────────────────────────────────────────────
+   Census Population          2020-2023            
+   NORS (Outbreaks)          1998-2021            
+   PulseNet (Isolates)       1996-2023            
+   Map the Meal Gap          2009-2020            
+   SVI                       2020, 2022           
+   
+   KEY FINDINGS:
+   • Most recent COMMON year across all datasets: 2020
+     (present in Census, NORS, PulseNet, Map the Meal Gap, SVI)
+   
+   • For 2021 analysis: Census + PulseNet only
+   
+   • For 2022-2023: Census + PulseNet + SVI (2022 only)
+   
+   • Longest time series: PulseNet (1996-2023, 27 years)
+   
+   • Most limited temporal coverage: SVI (only 2020 and 2022)
+
+2. GEOGRAPHIC JOINING CHALLENGES:
+
+   a) Datasets WITH FIPS codes (PREFERRED for joining):
+      ✓ Map the Meal Gap: Has FIPS as string
+      ✓ SVI: Has FIPS as integer (MUST zero-pad to 5 digits)
+      
+   b) Datasets WITHOUT FIPS codes (require name matching or lookups):
+      ✗ PulseNet: Only has SourceState/SourceCounty names
+      ✗ NORS: Only has ExposureState/ExposureCounty names
+      ✗ Census: Only has county name strings (with leading '.')
+   
+   c) Special geographic considerations:
+      • NORS: Uses '***' for suppressed counties (privacy)
+      • PulseNet: Many records missing SourceCounty
+      • Census: County names have leading '.' requiring .str.strip('.')
+      • All: County name variations can cause mismatch (e.g., "St." vs "Saint")
+
+3. RECOMMENDED JOIN STRATEGY:
+
+   STEP 1: Create Master FIPS Lookup
+   ────────────────────────────────────
+   • Start with SVI or Map the Meal Gap (both have clean FIPS)
+   • Create lookup: {(State, County_Name): FIPS}
+   • Include name variations for robust matching
+   
+   STEP 2: Standardize Geographic Names
+   ────────────────────────────────────
+   For all datasets:
+   • Convert to uppercase: .str.upper()
+   • Strip whitespace: .str.strip()
+   • Remove leading periods: .str.lstrip('.')
+   • Standardize abbreviations (St. → Saint, etc.)
+   
+   STEP 3: Join Order (by data quality)
+   ────────────────────────────────────
+   1. SVI ←→ Map the Meal Gap (FIPS-based, highest quality)
+   2. Add FIPS to PulseNet via (State, County) lookup
+   3. Add FIPS to NORS via (State, County) lookup
+   4. Join Census via cleaned county names + state
+   5. Validate all joins (check match rates)
+   
+   STEP 4: Handle Unmatched Records
+   ────────────────────────────────
+   • Log unmatched records for review
+   • Check for common mismatch patterns
+   • Consider fuzzy matching for stubborn cases
+   • Document exclusion criteria
+
+4. DATA QUALITY CONSIDERATIONS:
+
+   Before Analysis Checklist:
+   ☐ NORS: Filter out '***' suppressed counties
+   ☐ PulseNet: Normalize SourceType/PatientSex (.str.upper().str.strip())
+   ☐ PulseNet: Convert IsolatDate to datetime (pd.to_datetime())
+   ☐ Census: Strip leading '.' from county names
+   ☐ Map the Meal Gap: Dynamically identify insecurity rate column
+   ☐ SVI: Filter out -999 missing value codes
+   ☐ SVI: Zero-pad FIPS codes (.astype(str).str.zfill(5))
+   ☐ All: Check for duplicates after joins
+   ☐ All: Validate population totals match expected ranges
+
+5. RECOMMENDED ANALYSIS PATTERNS:
+
+   A. Outbreak Investigation Studies:
+   ──────────────────────────────────
+   Join: NORS (outbreak events) ← CDCID → GenEtiology (serotypes)
+         ↓
+   Spatial join to: Census (population denominators)
+         ↓
+   Enrich with: SVI (vulnerability), Map the Meal Gap (food insecurity)
+   
+   B. Social Determinants of Health:
+   ─────────────────────────────────
+   Join: SVI ←FIPS→ Map the Meal Gap
+         ↓
+   Aggregate: PulseNet cases by county
+         ↓
+   Standardize: Using Census population
+   
+   C. Temporal Trend Analysis:
+   ───────────────────────────
+   Primary: PulseNet (1996-2023) for long-term isolate trends
+   Secondary: NORS (1998-2021) for outbreak trends
+   Denominators: Census (2020-2023 only, limited historical)
+   
+   D. Serotype-Specific Analysis:
+   ──────────────────────────────
+   PulseNet (Serotype column) + NORS (join GenEtiology on CDCID)
+         ↓
+   Compare outbreak vs sporadic patterns by serotype
+
+6. CRITICAL DATASET LIMITATIONS:
+
+   ⚠️  NACo Economics: 
+       NO DATA - Skip entirely, only links.txt present
+   
+   ⚠️  Census Population:
+       • No FIPS codes (name matching required)
+       • Only 2020-2023 (limited historical denominators)
+       • Name variations cause join failures
+   
+   ⚠️  NORS:
+       • County suppression (***) reduces geographic resolution
+       • 39 sheets require complex joins
+       • Ends at 2021 (not current)
+   
+   ⚠️  PulseNet:
+       • Huge size (memory intensive)
+       • Many missing counties
+       • Mix of clinical/non-clinical requires subsetting
+   
+   ⚠️  Map the Meal Gap:
+       • Inconsistent structure across years
+       • 2-year reporting lag confusing
+       • 2022 file structure anomaly (covers 2019+2020)
+   
+   ⚠️  SVI:
+       • Only 2 years available (2020, 2022)
+       • -999 missing values require filtering
+       • FIPS formatting issue (integer → string)
+
+7. ANALYTIC BEST PRACTICES:
+
+   ✓ Always use population denominators when comparing across counties
+   ✓ Account for temporal reporting lags (especially Map the Meal Gap)
+   ✓ Stratify by serotype when analyzing Salmonella data
+   ✓ Consider outbreak vs sporadic designation in PulseNet
+   ✓ Adjust for multiple comparisons in exploratory analyses
+   ✓ Check for spatial autocorrelation in county-level analyses
+   ✓ Validate join success rates (aim for >95% match)
+   ✓ Document all data exclusions and transformations
+   ✓ Use robust methods for skewed count data
+   ✓ Consider time lags between exposure and detection
+
+====================================================================================================
+DATASET SUITABILITY BY RESEARCH QUESTION
+====================================================================================================
+
+Question: What are temporal trends in Salmonella?
+Best Dataset: PulseNet (1996-2023, 582K records)
+Supporting: NORS (1998-2021, outbreaks only)
+Limitation: Census denominators only 2020-2023
+
+Question: Which counties have highest outbreak burden?
+Best Dataset: NORS (geographic outbreak data)
+Supporting: Census (population denominators), SVI (vulnerability)
+Limitation: County suppression (***), ends 2021
+
+Question: How does food insecurity relate to disease?
+Best Dataset: Map the Meal Gap (2009-2020)
+Supporting: PulseNet or NORS (cases), Census (population)
+Limitation: Inconsistent structure, 2-year lag
+
+Question: What social factors predict higher incidence?
+Best Dataset: SVI (comprehensive vulnerability metrics)
+Supporting: PulseNet (cases), Census (population)
+Limitation: Only 2020 & 2022 available
+
+Question: Which serotypes cause outbreaks vs sporadic cases?
+Best Dataset: PulseNet (serotype + outbreak flag)
+Supporting: NORS GenEtiology sheet (outbreak serotypes)
+Limitation: Complex joins required
+
+====================================================================================================
+SUMMARY STATISTICS
+====================================================================================================
+
+Total Datasets Available:        6
+Datasets with Usable Data:       5 (exclude NACo)
+Total Records (all datasets):    ~592,000+
+  • PulseNet:                    582,022
+  • NORS:                        3,950
+  • Census:                      3,151
+  • SVI:                         3,143
+  • Map the Meal Gap:            ~3,143/year × 12 years
+
+Time Span (all datasets):        1996-2023 (27 years)
+Geographic Coverage:             US County/State level
+Primary Domain:                  Foodborne disease surveillance + social determinants
+
+Largest Dataset:                 PulseNet (582,022 records)
+Most Complex:                    NORS (39 relational sheets)
+Most Inconsistent:               Map the Meal Gap (varies by year)
+Most Limited Temporal:           SVI (only 2 years)
+
+====================================================================================================
+END OF COMPREHENSIVE OVERVIEW
+====================================================================================================
+Generated: 2026
+For: Epidemiological research and analysis using HuggingFace cached datasets

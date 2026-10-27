@@ -1,0 +1,13 @@
+{
+    "figures": {
+        "f1": "figures/dataset_integration_workflow.png",
+        "f2": "figures/dataset_overview_visualization.png",
+        "f3": "figures/temporal_overlap_analysis.png"
+    },
+    "tables": {},
+    "docs": {
+        "d1": "docs/dataset_overview_comprehensive.txt",
+        "d2": "docs/dataset_overview_executive_summary.txt"
+    },
+    "other": {}
+}

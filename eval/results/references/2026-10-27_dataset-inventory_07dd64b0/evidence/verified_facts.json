@@ -1,0 +1,154 @@
+{
+  "evidence_origin": "Direct local-file checks during the preceding assistant audit on 2026-10-27; source fingerprints recorded during collection.",
+  "pulsenet": {
+    "files_scanned": 6,
+    "nonempty_rows": 582022,
+    "rows_by_file": {
+      "Export_1996-2000.xlsx": 1369,
+      "Export_2001-2005.xlsx": 33891,
+      "Export_2006-2010.xlsx": 112924,
+      "Export_2011-2015.xlsx": 169997,
+      "Export_2016-2019.xlsx": 151692,
+      "Export_2020-2023.xlsx": 112149
+    },
+    "distinct_calendar_years_among_datetime_values": 28,
+    "date_scan_limit": "Non-datetime non-null values were counted separately, not comprehensively parsed; this is not a complete date-quality audit.",
+    "patient_age_columns": [
+      "PatientAgeDays",
+      "PatientAgeMonths",
+      "PatientAgeYears"
+    ],
+    "absent_claimed_column": "PatientAge",
+    "source_type_warning": "Values include state abbreviations such as MO and AR; capitalization/whitespace normalization alone does not resolve every anomalous value."
+  },
+  "nors": {
+    "file": "nors/TROU_20230317_For Release2.xlsx",
+    "sheet_count": 39,
+    "main_rows": 3950,
+    "unique_CDCID": 3950,
+    "main_columns": 82,
+    "minimum_yearfirstill": 1998,
+    "maximum_yearfirstill": 2021,
+    "primary_mode_counts": {
+      "Food": 3191,
+      "Animal Contact": 266,
+      "Indeterminate/Other/Unknown": 493
+    },
+    "absent_claimed_columns": [
+      "IllCount",
+      "HospCount",
+      "DeathCount"
+    ],
+    "present_outcome_columns": [
+      "TotalCases",
+      "HospitalNum",
+      "DeathsNum"
+    ],
+    "absent_claimed_sheets": [
+      "Foods",
+      "Settings",
+      "Water"
+    ],
+    "present_relevant_sheets": [
+      "FB_FoodMain",
+      "FB_FoodImplicated",
+      "Setting",
+      "GenEtiology"
+    ]
+  },
+  "census": {
+    "file": "census_population/2020-2023.xlsx",
+    "sheet": "CO-EST2023-POP",
+    "header": 3,
+    "loaded_rows": 3151,
+    "columns": 6,
+    "county_rows": 3144,
+    "national_aggregate_rows": 1,
+    "footer_rows": 6,
+    "county_row_definition": "First geography label begins with a period and the 2023 value is numeric."
+  },
+  "svi": {
+    "2020": {
+      "rows": 3143,
+      "columns": 158,
+      "EPL_variable_count": 16
+    },
+    "2022": {
+      "rows": 3144,
+      "columns": 158,
+      "EPL_variable_count": 16
+    },
+    "first_raw_FIPS_both_files": "01001",
+    "default_pandas_inferred_FIPS_dtype": "int64",
+    "connecticut_2020_FIPS": [
+      "09001",
+      "09003",
+      "09005",
+      "09007",
+      "09009",
+      "09011",
+      "09013",
+      "09015"
+    ],
+    "connecticut_2022_FIPS": [
+      "09110",
+      "09120",
+      "09130",
+      "09140",
+      "09150",
+      "09160",
+      "09170",
+      "09180",
+      "09190"
+    ]
+  },
+  "mmg_sample": {
+    "all_workbooks_inventory": "Workbook names, sheet names, and worksheet dimensions inspected for all 12 files; detailed data checks sampled the three files below.",
+    "MMG2011_2009Data_ToShare.xlsx": {
+      "sheet": "County",
+      "food_insecurity_rate_column": "FI Rate",
+      "checked_FIPS_cell": "C2",
+      "checked_FIPS_value": "02013",
+      "cell_data_type": "s"
+    },
+    "MMG2020_2018Data_ToShare.xlsx": {
+      "sheet": "2018 County",
+      "header": 1,
+      "rows": 3142,
+      "checked_FIPS_cell": "A3",
+      "checked_FIPS_value": 1001,
+      "cell_data_type": "n"
+    },
+    "MMG2022_2020-2019Data_ToShare.xlsx": {
+      "sheet": "County",
+      "rows": 6285,
+      "rows_by_year": {
+        "2019": 3142,
+        "2020": 3143
+      },
+      "checked_FIPS_cell": "A2",
+      "checked_FIPS_value": 1001,
+      "cell_data_type": "n"
+    }
+  },
+  "naco": {
+    "local_tabular_files_found": 0,
+    "resource_file": "links.txt"
+  },
+  "rendered_report": {
+    "pdf_pages": 10,
+    "embedded_images": 3,
+    "figure_pages": [
+      6,
+      7,
+      8
+    ]
+  },
+  "verification_limits": [
+    "No complete worker/aggregator tool-call history was retained in the saved trace.",
+    "Absence of a saved calculation is evidence of missing provenance, not proof that no calculation ever occurred.",
+    "No geographic joins or empirical match rates were recomputed during this audit.",
+    "Not every MMG worksheet or every data-quality property was audited.",
+    "This is an assistant factual audit, not a validated formal scoring rubric."
+  ]
+}
