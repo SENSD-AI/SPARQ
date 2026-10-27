@@ -1,6 +1,6 @@
 from typing import cast
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from sparq.logging_config import logger
 from sparq.schemas.output_schemas import Router
@@ -24,7 +24,11 @@ def router_node(state: State, llm_config: LLMSetting, prompt: str):
         structured_llm = llm.with_structured_output(Router)
         response = cast(Router, structured_llm.invoke([SystemMessage(content=prompt), HumanMessage(content=state.query)]))
 
+        messages: list[AIMessage] = []
+        if not response.route and response.answer is not None:
+            messages.append(AIMessage(content=response.answer))
+
         return {
             'route': response.route,
-            'answer': response.answer,
+            'messages': messages,
         }

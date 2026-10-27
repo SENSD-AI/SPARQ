@@ -6,6 +6,8 @@ from pathlib import Path
 import pydantic_core
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import RetryPolicy
+from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import AIMessage, HumanMessage
 
 from sparq.architectures.v1.nodes.aggregator import aggregator_node
 from sparq.architectures.v1.nodes.executor import executor_node
@@ -43,7 +45,7 @@ class Agentic_system:
         llm_config = self.settings.llm_config
         run_dir = self.settings.paths.run_dir
         run_dir.mkdir(parents=True, exist_ok=True)
-        vision_model = get_llm(
+        vision_model: BaseChatModel = get_llm(
             model=llm_config.vision_model.model_name,
             provider=llm_config.vision_model.provider,
         )
@@ -60,7 +62,7 @@ class Agentic_system:
             aggregator_node,
             llm_config=llm_config.aggregator,
             prompt=self.system_prompts['aggregator_prompt'],
-            working_dir=run_dir / "executor",
+            working_dir=run_dir,
             vision_model=vision_model,
         )
         self.saver_node_partial = partial(saver_node, save_dir=run_dir)
@@ -106,7 +108,7 @@ class Agentic_system:
         run_dir = self.settings.paths.run_dir
         assert run_dir is not None
 
-        input_data = {"query": user_query} # This will go into the State schema expected by the graph
+        input_data = {"query": user_query, "messages": [HumanMessage(content=user_query)]}
         with run_log_context(run_dir, run_id):
             try:
                 t0 = datetime.datetime.now()
@@ -120,12 +122,16 @@ class Agentic_system:
                 tf = datetime.datetime.now()
                 duration = (tf - t0).total_seconds()
 
+        final_message = state_values['messages'][-1]
+        if not isinstance(final_message, AIMessage):
+            raise ValueError("Run completed without a final assistant response.")
+
         result = SystemOutput(
             run_id=run_id,
             query=user_query,
             difficulty=difficulty,
             models=self.settings.llm_config.model_dump(),
-            response=state_values['answer'],
+            response=final_message.text,
             time_started=t0,
             time_ended=tf,
             duration=duration, 

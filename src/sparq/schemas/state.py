@@ -12,10 +12,9 @@ id = int  # Type Alias
 
 
 class State(BaseModel):
-    messages: Annotated[list[AnyMessage], add_messages] = []
+    messages: Annotated[list[AnyMessage], add_messages] = Field(default_factory=list)
     query: str
     route: bool | None = None
-    answer: str | None = None
     plan: Plan | None = None
     completed_plan_steps: list[id] = Field([], description="The IDs of the steps of the plan that have been processed already.")
     results: list[StepResult] = []

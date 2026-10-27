@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 import boto3
 from langchain_aws import ChatBedrockConverse
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableLambda
 
 # Importing the aggregator otherwise downloads tokenizer data on an empty cache.
@@ -166,12 +166,21 @@ class TestImageAnalysisIntegration(unittest.IsolatedAsyncioTestCase):
         self.agent_model.with_structured_output.assert_not_called()
 
     async def test_aggregator_calls_registered_async_image_tool(self):
+        final_message = AIMessage(content="Image-informed report", id="report-1")
+
         def create_agent(**kwargs):
             self.assertIs(kwargs["model"], self.agent_model)
 
             async def invoke(*args, **invoke_kwargs):
                 await self.inspect_registered_tool(kwargs["tools"])
-                return {"messages": [AIMessage(content="Image-informed report")]}
+                return {"messages": [
+                    HumanMessage(content="Write the final report now."),
+                    AIMessage(content="", tool_calls=[{
+                        "name": "analyze_image", "args": {}, "id": "image-1",
+                    }]),
+                    ToolMessage(content="Image evidence", tool_call_id="image-1"),
+                    final_message,
+                ]}
 
             return SimpleNamespace(ainvoke=invoke)
 
@@ -190,8 +199,22 @@ class TestImageAnalysisIntegration(unittest.IsolatedAsyncioTestCase):
                 working_dir=self.root,
                 vision_model=self.vision_model,
             )
-        self.assertEqual(output, {"answer": "Image-informed report"})
+        self.assertEqual(output, {"messages": [final_message]})
+        self.assertIs(output["messages"][0], final_message)
         self.agent_model.with_structured_output.assert_not_called()
+
+    async def test_aggregator_records_no_results_as_assistant_message(self):
+        output = await aggregator.aggregator_node(
+            state=State(query="Inspect plot"),
+            llm_config=self.config,
+            prompt=self.prompts["aggregator_prompt"],
+            working_dir=self.root,
+            vision_model=self.vision_model,
+        )
+
+        self.assertEqual(set(output), {"messages"})
+        self.assertIsInstance(output["messages"][0], AIMessage)
+        self.assertIn("There are no results", output["messages"][0].text)
 
     async def test_system_builds_graph_without_loading_image_prompt(self):
         system = Mock(spec=Agentic_system)

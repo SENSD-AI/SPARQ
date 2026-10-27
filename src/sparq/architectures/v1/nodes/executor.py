@@ -289,7 +289,7 @@ async def test_executor(plan: Plan):
     data_context = load_data_context(DATA_MANIFEST_PATH, DATA_SUMMARIES_SHORT_PATH)
 
     assert run_dir is not None
-    state = State(query="", route=None, answer=None, plan=plan, data_context=data_context)
+    state = State(query="", route=None, plan=plan, data_context=data_context)
     vision_config = system_settings.llm_config.vision_model
     vision_model = get_llm(model=vision_config.model_name, provider=vision_config.provider)
     response = await executor_node(state=state, config={"configurable": {"run_id": "test"}}, llm_config=system_settings.llm_config.executor, worker_prompt=prompt, output_dir=run_dir, vision_model=vision_model)

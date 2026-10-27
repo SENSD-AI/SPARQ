@@ -3,6 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from langchain_core.messages import AIMessage
+
 from sparq.schemas.output_schemas import StepResult
 from sparq.schemas.state import State
 from sparq.utils.helpers import write_json
@@ -22,7 +24,10 @@ class TestWriteTrace(unittest.TestCase):
         # crashed run still leaves the most recent trace on disk.
         state = State(
             query="What foods are most associated with Salmonella outbreaks?",
-            answer="Poultry and eggs are the most commonly implicated food vehicles.",
+            messages=[AIMessage(
+                content="Poultry and eggs are the most commonly implicated food vehicles.",
+                id="report-1",
+            )],
             results=[StepResult(id=1, step="load data", success=True, execution_results="done")],
         )
 
@@ -34,7 +39,10 @@ class TestWriteTrace(unittest.TestCase):
 
         trace = json.loads(trace_path.read_text())
         self.assertEqual(trace["query"], state.query)
-        self.assertEqual(trace["answer"], state.answer)
+        self.assertNotIn("answer", trace)
+        self.assertEqual(trace["messages"][0]["content"], state.messages[0].content)
+        self.assertEqual(trace["messages"][0]["type"], "ai")
+        self.assertEqual(trace["messages"][0]["id"], "report-1")
         self.assertEqual(len(trace["results"]), 1)
         self.assertEqual(trace["results"][0]["id"], 1)
 

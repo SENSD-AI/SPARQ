@@ -4,6 +4,7 @@ import tiktoken
 from langchain.agents import create_agent
 from langchain.tools import tool
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import AIMessage
 from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 
 from sparq.logging_config import logger
@@ -70,7 +71,7 @@ async def aggregator_node(
         results: list[StepResult] = state.results
 
         if not results:
-            return {'answer': '[AGGREGATOR]: There are no results to return'}
+            return {'messages': [AIMessage(content='[AGGREGATOR]: There are no results to return')]}
 
         max_tokens = llm_config.max_tokens or DEFAULT_CONTEXT_WINDOW
         execution_results = format_results(results)
@@ -101,6 +102,6 @@ async def aggregator_node(
 
         logger.info("Got results. Writing final report...")
         response = await agent.ainvoke({"messages": [{"role": "user", "content": "Write the final report now."}]})
-        answer: str = response["messages"][-1].content
+        final_message = response["messages"][-1]
 
-    return {'answer': answer}
+    return {'messages': [final_message]}
