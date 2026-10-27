@@ -33,6 +33,10 @@ class TestSaverNode(unittest.TestCase):
 
         final_answer = json.loads(final_answer_path.read_text())
         self.assertEqual(final_answer, {"query": state.query, "answer": state.messages[-1].text})
+        self.assertEqual(
+            (self.save_dir / 'report/report.md').read_text().strip(), state.messages[-1].text,
+        )
+        self.assertTrue((self.save_dir / 'report/report.pdf').is_file())
 
     def test_saves_query_and_answer_pair_when_answer_missing(self):
         state = State(query="What foods are most associated with Salmonella outbreaks?")
@@ -41,6 +45,7 @@ class TestSaverNode(unittest.TestCase):
 
         final_answer = json.loads((self.save_dir / "final_answer.json").read_text())
         self.assertEqual(final_answer, {"query": state.query, "answer": None})
+        self.assertFalse((self.save_dir / 'report').exists())
 
     def test_user_message_is_not_saved_as_an_answer(self):
         state = State(query="A question", messages=[HumanMessage(content="A question")])

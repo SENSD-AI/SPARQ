@@ -88,7 +88,7 @@ async def aggregator_node(
         system_prompt_str: str = system_prompt_template.invoke(input={}).to_string()
 
         llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
-        artifact_tools = ArtifactTools(working_dir)
+        artifact_tools = ArtifactTools(working_dir, index_name='executor/index.json')
         agent = create_agent(
             model=llm,
             name="aggregator",

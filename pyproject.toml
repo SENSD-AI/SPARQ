@@ -36,6 +36,9 @@ dependencies = [
     "pydantic-settings==2.13.1",
     "deepagents>=0.6.8",
     "loguru>=0.7.3",
+    "reportlab>=5.1.0",
+    "markdown-it-py>=4.0.0",
+    "font-roboto>=0.0.1",
 ]
 [project.scripts]
 sparq = "sparq.__main__:main"
@@ -47,6 +50,7 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "basedpyright>=1.39.9",
+    "pypdf>=6.21.3",
 ]
 [tool.basedpyright]
 typeCheckingMode = "standard"

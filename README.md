@@ -135,9 +135,19 @@ Each run writes to a timestamped directory under `output_dir` (default `~/tmp/sp
 ```
 output/02-06-2026_11-28-17/
 ├── executor/          # plots and files generated during execution
+├── report/
+│   ├── report.md      # report with contents and figure/table lists
+│   ├── report.pdf     # PDF with embedded figures
+│   └── ref.bib        # bibliography, when references are present
 ├── trace.json         # full step-by-step trace
 └── final_answer.json  # synthesised answer
 ```
+
+The saver generates the report bundle from the final assistant message. Empty
+figure/table lists are omitted. Figures stay in `executor/`; Markdown uses paths
+relative to `report/`, and the PDF embeds the images. Bibliography entries preserve
+the report's supplied references without inferring missing metadata. See
+[report generation](docs/reports.md) for the supported Markdown conventions.
 
 Where `~` resolves to:
 - **Linux / macOS:** `/home/<username>/tmp/sparq/output`

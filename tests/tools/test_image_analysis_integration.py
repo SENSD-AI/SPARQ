@@ -19,6 +19,7 @@ with patch("tiktoken.get_encoding", return_value=Mock(encode=lambda text: list(t
     from sparq.architectures.v1.nodes import aggregator, executor
     from sparq.architectures.v1.system import Agentic_system
 
+from sparq.architectures.v1.helpers.organizer import Index
 from sparq.schemas.output_schemas import Plan, Step, StepResult
 from sparq.schemas.state import State
 from sparq.settings import LLMSetting
@@ -215,6 +216,46 @@ class TestImageAnalysisIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(output), {"messages"})
         self.assertIsInstance(output["messages"][0], AIMessage)
         self.assertIn("There are no results", output["messages"][0].text)
+
+    async def test_aggregator_tools_read_executor_index_from_run_root(self):
+        executor_dir = self.root / "executor"
+        figure = executor_dir / "figures/plot.png"
+        figure.parent.mkdir(parents=True)
+        figure.write_bytes(self.image_bytes)
+        (executor_dir / "index.json").write_text(
+            Index(figures={"f1": Path("figures/plot.png")}).model_dump_json()
+        )
+
+        def create_agent(**kwargs):
+            async def invoke(*args, **invoke_kwargs):
+                tools = {item.name: item for item in kwargs["tools"]}
+                paths = await tools["list_artifacts"].ainvoke({})
+                self.assertEqual(paths, ["executor/figures/plot.png"])
+                matches = await tools["search_artifact"].ainvoke(
+                    {"artifact_name": paths[0]}
+                )
+                self.assertEqual(matches, paths)
+                self.assertTrue((self.root / paths[0]).is_file())
+                return {"messages": [AIMessage(content="Indexed report")]}
+
+            return SimpleNamespace(ainvoke=invoke)
+
+        with (
+            patch.object(aggregator, "get_llm", return_value=self.agent_model),
+            patch.object(aggregator, "count_tokens", return_value=1),
+            patch.object(aggregator, "filesystemtools", return_value=[]),
+            patch.object(aggregator, "create_agent", side_effect=create_agent),
+        ):
+            output = await aggregator.aggregator_node(
+                state=State(
+                    query="Inspect plot", results=[self.result], completed_plan_steps=[]
+                ),
+                llm_config=self.config,
+                prompt=self.prompts["aggregator_prompt"],
+                working_dir=self.root,
+                vision_model=self.vision_model,
+            )
+        self.assertEqual(output["messages"][0].text, "Indexed report")
 
     async def test_system_builds_graph_without_loading_image_prompt(self):
         system = Mock(spec=Agentic_system)
