@@ -65,7 +65,7 @@ class Agentic_system:
             working_dir=run_dir,
             vision_model=vision_model,
         )
-        self.saver_node_partial = partial(saver_node, save_dir=run_dir)
+        self.saver_node_partial = partial(saver_node, save_dir=run_dir, llm_config=llm_config)
     
     def _build_graph(self):
         graph_init = StateGraph(state_schema=State)
@@ -98,6 +98,7 @@ class Agentic_system:
         difficulty: int = 0,
         evaluation_context: EvaluationContext | None = None,
     ):
+        question_asked_at = datetime.datetime.now(datetime.UTC)
         self._get_node_definitions()
         self._build_graph()
 
@@ -108,7 +109,11 @@ class Agentic_system:
         run_dir = self.settings.paths.run_dir
         assert run_dir is not None
 
-        input_data = {"query": user_query, "messages": [HumanMessage(content=user_query)]}
+        input_data = {
+            "query": user_query,
+            "question_asked_at": question_asked_at,
+            "messages": [HumanMessage(content=user_query)],
+        }
         with run_log_context(run_dir, run_id):
             try:
                 t0 = datetime.datetime.now()

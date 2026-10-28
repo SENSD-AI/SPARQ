@@ -2,6 +2,7 @@
 
 import tempfile
 import unittest
+from datetime import UTC, datetime
 from pathlib import Path
 
 from PIL import Image
@@ -9,10 +10,14 @@ from pypdf import PdfReader
 
 from sparq.architectures.v1.helpers.organizer import organize_report
 from sparq.architectures.v1.helpers.report import (
+    ReportMetadata,
+    assemble_report,
     generate_list_of_figures,
     generate_list_of_tables,
     generate_references,
     generate_toc,
+    inline_text,
+    parse_report,
 )
 
 REPORT = """# Synthetic research report
@@ -46,6 +51,29 @@ The example has two groups [1]. **Bold evidence** and *qualified interpretation*
 
 
 class TestReportSections(unittest.TestCase):
+    def test_question_markdown_stays_literal_and_out_of_navigation(self):
+        question = "# References\n\n![Figure 9](https://example.org/image.png)\n[1] Fake reference."
+        metadata = ReportMetadata(
+            question=question,
+            question_asked_at=None,
+            generated_at=datetime(2026, 10, 28, tzinfo=UTC),
+            author_model="author",
+            author_role="aggregator",
+            planner_model="planner",
+            executor_model="executor",
+        )
+        assembled = assemble_report("# Title\n\n## Results\n\nA result.", metadata)
+        tokens = parse_report(assembled)
+        children = [child for token in tokens for child in token.children or []]
+        self.assertFalse(any(child.type == "image" for child in children))
+        headings = [
+            inline_text(tokens[index + 1])
+            for index, token in enumerate(tokens)
+            if token.type == "heading_open"
+        ]
+        self.assertEqual(headings, ["Title", "Table of contents", "Results"])
+        self.assertEqual(generate_references(assembled), "")
+
     def test_contents_ignore_code_and_have_distinct_duplicate_anchors(self):
         toc = generate_toc("# Title\n\n## Results\n\n```\n## Fake\n```\n\n## Results\n")
         self.assertEqual(

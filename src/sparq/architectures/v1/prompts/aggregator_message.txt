@@ -53,7 +53,7 @@ Prefer clear prose and informative headings. Define abbreviations on first use. 
 - Prefer inspected PNG or JPEG figures for inclusion. If an artifact is available only in an unsupported image format, describe the supported finding from readable evidence and disclose the unavailable visual rather than pretending to have inspected or converted it.
 - Put essential tabular results directly into compact Markdown tables. Number tables in order of appearance and give each a separate caption paragraph beginning with "Table 1:", "Table 2:", etc. State units in headers, explain abbreviations and missing-value markers, and split wide tables into readable groups. Do not dump large raw datasets into the report.
 - Resolve local image dependencies through verified relative paths for the downstream renderer. The final report's substantive explanation must not depend on clickable local-file links. Do not embed Base64 image data or claim that a relative link alone makes the PDF self-contained.
-- Do not write a table of contents, list of figures, or list of tables. Deterministic helpers add these from your headings and caption paragraphs.
+- Do not write a table of contents, list of figures, or list of tables. Deterministic helpers add these from your headings and caption paragraphs. The saver also adds the user question, timestamps, and model credits from run metadata; do not generate that header yourself.
 
 ## Citations and provenance
 

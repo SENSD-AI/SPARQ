@@ -1,9 +1,49 @@
 """Derive report navigation and bibliography from the supplied Markdown."""
 
 import re
+from datetime import datetime
 
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
+from pydantic import BaseModel
+
+
+class ReportMetadata(BaseModel):
+    """Recorded run details displayed independently of the generated report body."""
+
+    question: str
+    question_asked_at: datetime | None
+    generated_at: datetime
+    author_model: str
+    author_role: str
+    planner_model: str
+    executor_model: str
+
+
+def _escape_markdown(text: str) -> str:
+    """Keep recorded text literal, including questions containing Markdown images."""
+    escaped = re.sub(r"([\\`*_{}\[\]<>()#+\-.!|>~&])", r"\\\1", text)
+    return "  \n".join(escaped.splitlines())
+
+
+def generate_report_header(metadata: ReportMetadata) -> str:
+    """Format question, timestamps, and model attribution from run metadata."""
+    asked_at = (
+        metadata.question_asked_at.isoformat(timespec="seconds")
+        if metadata.question_asked_at is not None
+        else "Not recorded"
+    )
+    fields = [
+        ("Question asked", asked_at),
+        ("Report generated", metadata.generated_at.isoformat(timespec="seconds")),
+        ("Author", f"{metadata.author_model} ({metadata.author_role})"),
+        ("Planner model", metadata.planner_model),
+        ("Executor model", metadata.executor_model),
+    ]
+    details = "\n".join(
+        f"- **{label}:** {_escape_markdown(value)}" for label, value in fields
+    )
+    return f"**User question**\n\n{_escape_markdown(metadata.question)}\n\n{details}"
 
 
 def inline_text(token: Token) -> str:
@@ -119,8 +159,8 @@ def generate_references(markdown: str) -> str:
     return "\n\n".join(entries.values()) + ("\n" if entries else "")
 
 
-def assemble_report(markdown: str) -> str:
-    """Insert derived navigation after the title, preserving the report body."""
+def assemble_report(markdown: str, metadata: ReportMetadata | None = None) -> str:
+    """Insert recorded metadata and derived navigation after the report title."""
     tokens = parse_report(markdown)
     title_end = 0
     if tokens and tokens[0].type == "heading_open" and tokens[0].tag == "h1":
@@ -128,6 +168,7 @@ def assemble_report(markdown: str) -> str:
     lines = markdown.splitlines()
     sections = [
         "\n".join(lines[:title_end]),
+        generate_report_header(metadata) if metadata is not None else "",
         generate_toc(markdown),
         generate_list_of_figures(markdown),
         generate_list_of_tables(markdown),

@@ -11,9 +11,26 @@ run_dir/
     ref.bib       # only when numbered references exist
 ```
 
-`organize_report(markdown, run_dir)` assembles this bundle. It is separate from
-`organize()`, which moves executor artifacts into category folders. Report
+`organize_report(markdown, run_dir, metadata=None)` assembles this bundle. It is
+separate from `organize()`, which moves executor artifacts into category folders. Report
 generation leaves those artifacts and their index in place.
+
+## Report header
+
+The saver inserts recorded metadata after the title and before navigation in both
+Markdown and PDF:
+
+- The complete user question, displayed as literal text.
+- The date and time the question was received by `run()` and report generation
+  began, in ISO 8601 format with a UTC offset.
+- The report author: aggregator model name and provider.
+- The planner and executor model names and providers.
+
+For direct answers that skip analysis, the author is the router model and both
+workers are marked `Not used`. Missing historical timestamps or model settings
+are marked `Not recorded`; they are not inferred from file dates or report text.
+The question receipt timestamp is retained in `trace.json`. Helpers called
+without metadata retain their existing behavior.
 
 ## Helpers
 
@@ -34,8 +51,8 @@ The helpers live under `src/sparq/architectures/v1/helpers/`:
 
 ## Markdown contract
 
-The aggregator writes the report body. Helpers insert navigation after its title;
-the aggregator must not also generate contents or figure/table lists.
+The aggregator writes the report body. Helpers insert metadata and navigation
+after its title; the aggregator must not also generate contents or figure/table lists.
 
 - Use one `# Title`, then `##` and `###` headings.
 - Use ordinary paragraphs, emphasis, links, lists, fenced code, and pipe tables.

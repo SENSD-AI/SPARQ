@@ -4,7 +4,11 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from sparq.architectures.v1.helpers.report import assemble_report, generate_references
+from sparq.architectures.v1.helpers.report import (
+    ReportMetadata,
+    assemble_report,
+    generate_references,
+)
 from sparq.architectures.v1.helpers.report_pdf import generate_pdf
 from sparq.schemas.state import State
 
@@ -22,7 +26,9 @@ TABULAR_FTYPES = ['.csv', '.tsv', '.xls', '.xlsx', '.parquet']
 DOC_FTYPES = ['.txt', '.md', '.pdf', '.doc', '.docx', '.html']
 
 
-def organize_report(markdown: str, run_dir: Path) -> Path:
+def organize_report(
+    markdown: str, run_dir: Path, metadata: ReportMetadata | None = None,
+) -> Path:
     """Write the final report bundle without moving executor artifacts.
 
     Write Markdown first so it remains available if PDF rendering fails.
@@ -30,7 +36,7 @@ def organize_report(markdown: str, run_dir: Path) -> Path:
     """
     if not markdown.strip():
         raise ValueError('Cannot organize an empty report.')
-    assembled = assemble_report(markdown)
+    assembled = assemble_report(markdown, metadata)
     bibliography = generate_references(markdown)
     report_dir = run_dir / 'report'
     report_dir.mkdir(parents=True, exist_ok=True)

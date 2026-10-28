@@ -3,12 +3,14 @@
 import json
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END, START, StateGraph
+from pypdf import PdfReader
 
 from sparq.architectures.v1.nodes.router import router_node
 from sparq.schemas.output_schemas import Router
@@ -86,9 +88,22 @@ class TestSingleRunMessageExport(unittest.IsolatedAsyncioTestCase):
                 output = await system.run("A question", run_id="test-run")
 
             self.assertEqual(output.response, "A direct answer")
+            markdown = (root / "report/report.md").read_text()
+            report_text = " ".join(
+                page.extract_text()
+                for page in PdfReader(root / "report/report.pdf").pages
+            )
+            self.assertIn("(router)", report_text)
+            self.assertIn("**Planner model:** Not used", markdown)
+            self.assertIn("**Executor model:** Not used", markdown)
             trace = json.loads((root / "trace.json").read_text())
             self.assertNotIn("answer", trace)
-            self.assertEqual([message["type"] for message in trace["messages"]], ["human", "ai"])
+            asked_at = datetime.fromisoformat(trace["question_asked_at"])
+            self.assertIsNotNone(asked_at.tzinfo)
+            self.assertIn(asked_at.isoformat(timespec="seconds"), report_text)
+            self.assertEqual(
+                [message["type"] for message in trace["messages"]], ["human", "ai"]
+            )
             self.assertEqual([message["content"] for message in trace["messages"]], ["A question", "A direct answer"])
             saved = json.loads((root / "final_answer.json").read_text())
             self.assertEqual(saved, {"query": "A question", "answer": "A direct answer"})

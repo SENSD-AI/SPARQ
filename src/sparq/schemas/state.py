@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -14,6 +15,7 @@ id = int  # Type Alias
 class State(BaseModel):
     messages: Annotated[list[AnyMessage], add_messages] = Field(default_factory=list)
     query: str
+    question_asked_at: datetime | None = None
     route: bool | None = None
     plan: Plan | None = None
     completed_plan_steps: list[id] = Field([], description="The IDs of the steps of the plan that have been processed already.")
