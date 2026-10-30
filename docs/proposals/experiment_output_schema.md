@@ -32,7 +32,8 @@ Verified against the LangSmith SDK reference docs (2026-07-16):
   `total_cost`, `prompt_cost`, `completion_cost` directly. No manual summing of prompt+completion
   cost needed.
 - Caveat: server-side cost computation only works for models LangSmith has priced. Unclear whether
-  this project's non-OpenAI/Anthropic providers (Bedrock, Ollama, OpenRouter, per `CLAUDE.md`) are
+  this project's provider routes (including Bedrock and OpenRouter, defined in
+  `src/sparq/utils/get_llm.py`) are
   covered — needs a spot check once wired up.
 - No SDK helper sums cost across a run tree. A single `agentic_system.run()` call fans out into a
   root run plus per-node child runs (router → planner → executor → aggregator); getting one

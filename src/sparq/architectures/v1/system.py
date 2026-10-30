@@ -15,7 +15,6 @@ from sparq.architectures.v1.nodes.planner import planner_node
 from sparq.architectures.v1.nodes.router import router_func, router_node
 from sparq.architectures.v1.nodes.saver import saver_node
 
-# from sparq.settings_old import Settings
 from sparq.architectures.v1.settings import V1Settings
 from sparq.logging_config import logger, run_log_context
 from sparq.schemas.runs import EvaluationContext, SystemOutput

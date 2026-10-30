@@ -1,5 +1,12 @@
 # Parallel Execution Design
 
+**Historical proposal; core capability implemented.** Current code uses
+`Step.dependencies` (step IDs), dependency-ready parallel rounds, run/step-scoped
+namespaces, and dependency namespace merging. The sequential baseline and
+`depends_on` examples below document the original design, not current behavior.
+See `src/sparq/architectures/v1/nodes/executor.py` and
+`src/sparq/schemas/planning.py` for the implemented contract.
+
 Design document for improvement #1: step dependency tracking and concurrent execution of independent plan steps.
 
 ---

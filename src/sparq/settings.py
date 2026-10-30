@@ -52,7 +52,6 @@ BUNDLED_DATA_DIR: Path = get_package_dir() / "data"         # On first install, 
 USER_DATA_DIR: Path = get_user_config_dir() / "data"
 
 DATA_MANIFEST_PATH: Path = USER_DATA_DIR / "data_manifest.json"
-DATA_SUMMARIES_PATH: Path = USER_DATA_DIR / "data_summaries.json"
 DATA_SUMMARIES_FULL_PATH: Path = USER_DATA_DIR / "data_summaries_full.json"
 DATA_SUMMARIES_SHORT_PATH: Path = USER_DATA_DIR / "data_summaries_short.json"
 

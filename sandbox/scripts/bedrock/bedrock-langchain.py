@@ -3,12 +3,11 @@ import os
 import boto3
 from langchain_aws import ChatBedrockConverse
 
-from sparq.settings_old import Settings
+from sparq.settings import ENVSettings
 
 MODEL_ID = "us.anthropic.claude-3-5-haiku-20241022-v1:0"
 
-settings = Settings()
-settings._load_env_variables()
+ENVSettings()
 
 profile = os.getenv('AWS_PROFILE', 'sensd')
 

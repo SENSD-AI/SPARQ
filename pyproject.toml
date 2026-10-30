@@ -1,7 +1,7 @@
 [project]
 name = "sparq"
 version = "0.1.0"
-description = "Add your description here"
+description = "A multi-agent pipeline for epidemiological data analysis"
 readme = "README.md"
 requires-python = ">=3.13.3"
 dependencies = [
@@ -11,13 +11,11 @@ dependencies = [
     "langchain-community==0.4.2",
     "langchain-core>=1.4.7",
     "langchain-google-genai>=4.2.5",
-    "langchain-ollama==1.1.0",
     "langchain-openai==1.2.2",
     "langgraph>=1.2.5",
     "langgraph-prebuilt==1.1.0",
     "langsmith>=0.8.11",
     "numpy==2.2.6",
-    "ollama==0.6.2",
     "openai==2.41.0",
     "openpyxl==3.1.5",
     "pandas==2.2.3",
@@ -29,10 +27,8 @@ dependencies = [
     "tiktoken==0.9.0",
     "tqdm==4.67.1",
     "langchain-aws==1.5.0",
-    "appdirs==1.4.4",
     "boto3==1.43.24",
     "botocore==1.43.24",
-    "cloudpickle>=3.1.2",
     "pydantic-settings==2.13.1",
     "deepagents>=0.6.8",
     "loguru>=0.7.3",

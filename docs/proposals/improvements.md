@@ -1,15 +1,18 @@
 # Architectural Improvement Recommendations
 
+Status reviewed against the implementation on 2026-10-30. Implemented items below
+link to current code; unchecked designs remain proposals, not current capabilities.
+
 ## Priority Summary
 
 | Change | Effort | Impact | Done |
 |--------|--------|--------|------|
-| Step dependency + parallel execution | Medium | High (throughput) | [ ] |
+| Step dependency + parallel execution | Medium | High (throughput) | [x] |
 | Executor → planner feedback loop | High | High (resilience) | [ ] |
-| Plot interpretation via agent-controlled tool | Medium | High (output quality) | [ ] |
+| Plot interpretation via agent-controlled tool | Medium | High (output quality) | [x] |
 | Figure numbering tool for executor | Low | Medium (output quality) | [ ] |
 | Aggregator academic referencing of outputs | Medium | High (output quality) | [ ] |
-| Aggregator writes markdown report → PDF | Low | High (output quality) | [ ] |
+| Aggregator writes markdown report → PDF | Low | High (output quality) | [x] |
 | Multi-route router for general use cases | High | High (product scope) | [ ] |
 | Aggregator output isn't structured | Low | Medium (robustness) | [ ] |
 | LLM model validation at startup | Low | Medium (reliability) | [ ] |
@@ -17,7 +20,7 @@
 | Data science coding skill for executor | Medium | High (agent code quality) | [ ] |
 | **Artifact organizer node** (supersedes #3, #4, #5) | Medium | High (output quality) | [ ] |
 | Aggregator token-budget truncation + RAG fallback | Medium | High (robustness) | [ ] |
-| Bedrock grammar-size blowup with many bound tools | Medium | High (provider compat) | [ ] |
+| Bedrock grammar-size blowup with many bound tools | Medium | High (provider compat) | [x] |
 | User-facing step-completion tracker (resumable) | High | High (product scope) | [ ] |
 | Sub-task parallelism within a worker (`spawn_subtasks`) | Medium | Medium (throughput) | [ ] |
 | Executor retries pass prior failure context to next attempt | Low | High (resilience) | [ ] |
@@ -28,43 +31,21 @@
 
 ## 1. Step dependency + parallel execution
 
-**Files**: `src/sparq/schemas/planning.py`, `src/sparq/architectures/v1/nodes/executor.py`
+**Status: implemented.** `Step.dependencies` stores prerequisite step IDs.
+The executor dispatches dependency-ready steps with `asyncio.gather`, creates
+run/step-scoped namespaces, and merges dependency state into each worker. It
+retries failed steps and rejects unresolved dependency deadlocks.
 
-**Design doc**: [`docs/proposals/parallel_execution.md`](parallel_execution.md)
-
-### Problem
-
-The `Step` schema has no dependency field, so all steps always run sequentially. A multi-step plan that loads three datasets and then analyses them cannot overlap the loads, even though they are independent. The shared single namespace pickle file (`ns_path = get_ns_path(run_id)`) would also race if two subprocesses wrote to it concurrently.
-
-### Design
-
-**Schema change** — add `depends_on` to `Step`:
-
-```python
-class Step(BaseModel):
-    ...
-    depends_on: list[int] = []  # zero-based indices of steps that must complete first
-```
-
-The planner populates this field. Steps with an empty `depends_on` (or whose dependencies are all resolved) form a batch that can run concurrently.
-
-**`sub_agent_id` per parallel step** — rather than sharing the run-level `ns_path`, each step in a parallel batch gets its own isolated namespace keyed by `f"{run_id}_step_{i}"`. The existing `get_ns_path`, `load_ns`, and `cleanup_ns` primitives in `namespace.py` handle this with no changes to their signatures.
-
-**Namespace lifecycle for a parallel batch:**
-1. **Seed** — copy the current base pickle into each `sub_ns_path` so parallel steps start with variables from completed sequential steps
-2. **Execute** — each step's agent and REPL tools are bound to its own `sub_ns_path`; subprocesses write only to their own file, no races
-3. **Merge** — after `asyncio.gather`, load each sub-namespace and `update()` the base; last-write-wins on key conflicts (acceptable because truly independent steps should not create the same variable name)
-4. **Cleanup** — `cleanup_ns(sub_agent_id)` removes each sub-pickle
-
-**Executor changes** — `executor_node` and `process_step` become `async`; `agent.invoke` → `agent.ainvoke`. The sequential `for` loop is replaced by a topological batch loop: resolve which steps have no unmet dependencies, dispatch them concurrently, mark complete, repeat.
-
-**`system.py` is unchanged** — `run_id` creation, graph wiring, and the event loop are unaffected. LangGraph is transparent to whether a node function is sync or async.
+Current code: `src/sparq/schemas/planning.py` and
+`src/sparq/architectures/v1/nodes/executor.py`.
+The [original design](parallel_execution.md) is retained as a historical proposal;
+its `depends_on` spelling and sequential baseline are not the current contract.
 
 ---
 
 ## 2. No replanning on executor failure
 
-**Files**: `src/sparq/nodes/executor.py`, `src/sparq/system.py`
+**Files**: `src/sparq/architectures/v1/nodes/executor.py`, `src/sparq/architectures/v1/system.py`
 
 When a step fails, the error is stored and execution continues silently. The aggregator receives a mix of successful results and error strings with no structural distinction. A feedback loop — routing back to the planner when a threshold of steps fail — would make the system more resilient. LangGraph's conditional edges make this straightforward:
 
@@ -78,41 +59,21 @@ graph_init.add_conditional_edges("executor", executor_health_check, {
 
 ---
 
-## 3. Executor cannot interpret generated plots
+## 3. Plot interpretation via agent-controlled tool
 
-**Files**: `src/sparq/tools/interpret_image_tool.py` (new), `src/sparq/architectures/v1/nodes/executor.py`, `src/sparq/settings.py`, `config/config.toml`
+**Status: implemented.** Executor workers and the aggregator register
+`make_image_analysis_tool` with the configured vision model. The tool reads local
+image artifacts within its allowed root and returns structured observations.
+This establishes tool availability, not automatic scientific validation of plots.
 
-The executor produces plots but has no way to read them back. `files_generated` is just a list of filename strings — plots are opaque to subsequent steps and to the aggregator.
-
-**Design:** a `make_interpret_image_tool(vision_llm)` factory returns a `@tool` the executor can call immediately after saving any plot. The interpretation is returned as a tool result, visible in the executor's context for subsequent steps and captured in `ExecutorOutput` for the artifact organizer to fold into `artifact_map.json`.
-
-```python
-def make_interpret_image_tool(vision_llm):
-    @tool
-    def interpret_image(file_path: str) -> str:
-        """Load a saved plot and return a description of its key findings."""
-        path = Path(file_path)
-        mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg"}.get(
-            path.suffix.lower().lstrip("."), "image/png"
-        )
-        b64 = base64.b64encode(path.read_bytes()).decode()
-        response = vision_llm.invoke([HumanMessage(content=[
-            {"type": "text", "text": "Describe the key findings in this figure. Be concise and scientific."},
-            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
-        ])])
-        return response.content
-    return interpret_image
-```
-
-The executor prompt is updated to instruct: *"After saving any plot with `plt.savefig`, call `interpret_image` on the saved path and include the interpretation in your findings."*
-
-**Constraint:** `vision_llm` must be a multimodal model. Add a separate `vision_llm` config entry in `LLMSettings` — do not reuse the executor LLM, since that may be text-only. `vision_llm` is also used by the artifact organizer node (improvement #12).
+Current code: `src/sparq/tools/image_processing/image_analysis_tool.py`, executor,
+and aggregator. The separate artifact-organizer redesign remains a proposal.
 
 ---
 
 ## 4. Figure numbering tool for executor
 
-**Files**: `src/sparq/tools/figure_tools.py` (new), `src/sparq/nodes/executor.py`, `src/sparq/prompts/executor_message.txt`
+**Files**: `src/sparq/tools/figure_tools.py` (new), `src/sparq/architectures/v1/nodes/executor.py`, `src/sparq/prompts/executor_message.txt`
 
 The executor generates plots with no awareness of how many already exist in `output_dir`. This means figure titles like "Correlation Plot" with no numbering, making it impossible for the aggregator (or a reader) to reference them unambiguously.
 
@@ -133,7 +94,7 @@ The executor prompt should be updated to instruct: *"Before saving any plot, cal
 
 ## 5. Aggregator academic referencing of outputs
 
-**Files**: `src/sparq/nodes/aggregator.py`, `src/sparq/prompts/aggregator_message.txt`, `src/sparq/system.py`
+**Files**: `src/sparq/architectures/v1/nodes/aggregator.py`, `src/sparq/prompts/aggregator_message.txt`, `src/sparq/architectures/v1/system.py`
 
 The aggregator currently only sees `executor_results` as a text dict. It has no awareness of files generated by the executor, so it cannot reference plots and documents in its report.
 
@@ -152,31 +113,22 @@ This mirrors how scientific papers reference figures and ensures the output is s
 
 ---
 
-## 6. Aggregator writes markdown report converted to PDF
+## 6. Markdown and PDF report bundles
 
-**Files**: `src/sparq/nodes/aggregator.py`, `src/sparq/nodes/saver.py`, `src/sparq/system.py`
+**Status: implemented.** The aggregator supplies Markdown; the saver writes
+`run_dir/report/report.md`, `report.pdf`, and references when supplied. Deterministic
+helpers derive navigation, caption lists, metadata, and bibliography output.
+PDF rendering uses ReportLab and packaged fonts; pandoc is not required.
 
-Currently `answer` is a plain string stored in state and dumped into `final_answer.json`. For a product, the output should be a formatted document.
-
-**Changes:**
-
-1. Pass `run_dir` to `aggregator_node`; after the LLM call, write `answer` to `run_dir / "report.md"`
-2. In `saver_node`, after writing `trace.json` and `final_answer.json`, attempt PDF conversion:
-   ```python
-   import subprocess
-   md_path = save_dir / "report.md"
-   if md_path.exists():
-       subprocess.run(["pandoc", str(md_path), "-o", str(save_dir / "report.pdf")], check=False)
-   ```
-3. PDF conversion is best-effort — if `pandoc` is not installed the markdown is still saved and usable
-
-**Dependency**: `pandoc` must be installed on the system (`apt install pandoc` / `brew install pandoc`). For Docker deployments, add it to the `Dockerfile`.
+See [report generation](../guides/reports.md), the
+[adopted decision](../adr/0001-deterministic-report-bundles.md), and
+`src/sparq/architectures/v1/reporting/`.
 
 ---
 
 ## 7. Multi-route router for general use cases
 
-**Files**: `src/sparq/nodes/router.py`, `src/sparq/schemas/planning.py`, `src/sparq/system.py`
+**Files**: `src/sparq/architectures/v1/nodes/router.py`, `src/sparq/schemas/planning.py`, `src/sparq/architectures/v1/system.py`
 
 The current router is binary (`route: bool`) — it only distinguishes "needs data analysis" from "answer directly." This locks the system into a single use case. As a product, the system needs to handle general queries such as image analysis, literature/research surveys, and open-ended conversation.
 
@@ -214,7 +166,7 @@ router (enum)
 
 ## 8. Aggregator output isn't structured
 
-**File**: `src/sparq/nodes/aggregator.py`
+**File**: `src/sparq/architectures/v1/nodes/aggregator.py`
 
 The router, planner, and executor all use `response_format` for structured output. The aggregator calls `llm.invoke(prompt_str)` and reads `.content` directly. This inconsistency makes it harder to evolve the output schema (e.g., adding citations, confidence scores, or section headers) and bypasses the validation guarantees the rest of the pipeline relies on.
 
@@ -222,7 +174,7 @@ The router, planner, and executor all use `response_format` for structured outpu
 
 ## 9. LLM model validation at startup
 
-**Files**: `src/sparq/utils/get_llm.py`, `src/sparq/system.py`
+**Files**: `src/sparq/utils/get_llm.py`, `src/sparq/architectures/v1/system.py`
 
 After a user sets model IDs in a TOML config there is no verification that those models are actually usable. Errors only surface mid-run when a node first invokes the model, at which point significant context and cost may already have been spent. Three properties should be checked up front:
 
@@ -406,7 +358,7 @@ Fixing those two did not resolve the grammar-size error on its own.
 
 Swapping `create_deep_agent` for `langchain.agents.create_agent` (same call shape: `model`, `tools`, `system_prompt`, `response_format=StepResult`) resolved the grammar-size error. `create_agent` does not add `deepagents`' 7 built-in tools, so the worker binds only the 9 tools this codebase defines — enough to bring Bedrock's compiled grammar back under the 300MB limit. Confirmed working end-to-end via `test_executor` against `aws_bedrock` / `us.anthropic.claude-sonnet-4-5-20250929-v1:0` on 2026-07-02 (real analysis output — plots, CSVs, a report — written to the run's output directory).
 
-**Trade-off**: this drops `deepagents`' subagent delegation (`task`) and todo-list tracking (`write_todos`), which were the reason `create_deep_agent` was adopted in the first place. `executor.py` currently imports both `create_agent` (used) and `create_deep_agent` (unused, left in place intentionally as a marker to revisit).
+**Trade-off**: this drops `deepagents`' subagent delegation (`task`); current workers provide todo-list tracking through `TodoListMiddleware`, which were the reason `create_deep_agent` was adopted in the first place. `executor.py` currently imports both `create_agent` (used) and `create_deep_agent` (unused, left in place intentionally as a marker to revisit).
 
 ### Not yet done
 

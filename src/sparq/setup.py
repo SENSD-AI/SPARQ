@@ -16,7 +16,6 @@ from sparq.architectures.v1.settings import V1_INNER_CONFIG, V1_USER_CONFIG
 from sparq.settings import (
     BUNDLED_DATA_DIR,
     DATA_SUMMARIES_FULL_PATH,
-    DATA_SUMMARIES_PATH,
     DATA_SUMMARIES_SHORT_PATH,
     USER_DATA_DIR,
     USER_DOTFILE_PATH,
@@ -49,7 +48,6 @@ def setup():
 
     # 5. Copy bundled data summaries to user data dir if not already present
     for src, dst in [
-        (BUNDLED_DATA_DIR / "data_summaries.json",       DATA_SUMMARIES_PATH),
         (BUNDLED_DATA_DIR / "data_summaries_full.json",  DATA_SUMMARIES_FULL_PATH),
         (BUNDLED_DATA_DIR / "data_summaries_short.json", DATA_SUMMARIES_SHORT_PATH),
     ]:

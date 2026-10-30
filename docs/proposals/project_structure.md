@@ -8,11 +8,10 @@ exceptions; it does not adopt the other feature proposals in this directory.
 
 ```text
 SPARQ/
-├── README.md, AGENTS.md, CLAUDE.md, CHANGES.md
+├── README.md, AGENTS.md, CHANGES.md
 ├── pyproject.toml, uv.lock, Dockerfile, config_v1.toml
 ├── src/sparq/
 │   ├── __main__.py, settings.py, setup.py, logging_config.py
-│   ├── settings_old.py, default_config.toml  # legacy sandbox dependencies
 │   ├── architectures/
 │   │   ├── v1/
 │   │   │   ├── system.py, settings.py, default_config.toml
@@ -61,7 +60,7 @@ SPARQ/
 │   ├── README.md
 │   ├── notebooks/                          # manual checks and investigations
 │   ├── scripts/bedrock/                    # SDK and LangChain API trials
-│   └── archive/prompts/                    # historical prompt variants
+│   └── archive/                            # historical prompts and notebooks
 └── eval/results/                           # existing historical local results
 ```
 
@@ -85,7 +84,7 @@ Ordinary runtime output remains outside the repository at its configured path.
 | `eval/smoke_test.py` | `scripts/smoke_test.py` | Maintained repository launcher |
 | `utils/bedrock_utils.py` | `scripts/aws/list_models.py` | Operational model listing utility |
 | `scripts/try_scripts/` | `sandbox/scripts/bedrock/` | Preserved trial scripts, not maintained examples |
-| `notebooks/`, `scratch/` | `sandbox/notebooks/` | Contents preserved, including empty placeholders |
+| `notebooks/`, `scratch/` | `sandbox/notebooks/` | Historical notebooks archived; empty placeholders removed during cleanup |
 | Archived v1 prompts | `sandbox/archive/prompts/` | Contents preserved; active prompts remain beside the architecture |
 | Ignored `work/` files | `manuscripts/jamia/drafts/`, `scripts/` | Remain local and ignored; historical scripts retain their old paths |
 | `claude_context/`, architecture chapter, thesis note | `manuscripts/thesis/` | Tracked content preserved; plaintext note remains ignored |
@@ -108,12 +107,11 @@ Ordinary runtime output remains outside the repository at its configured path.
 
 - The preserved reference bundle contains an absolute `run_output` symlink to an
   external run. Relocation preserves the link itself; external files are untouched.
-- Legacy Bedrock trials still import `settings_old.py`, which uses the package-level
-  default configuration. Both remain until a separate modernization effort.
+- The Bedrock trials now use `ENVSettings`. The unused legacy settings and package-level
+  default configuration were removed during the subsequent cleanup.
 - Manuscript revision scripts refer to historical local paths. They are archived
   unchanged rather than rewritten or executed.
-- Two scratch notebooks are empty files. They are preserved, not treated as valid
-  runnable notebooks.
+- Two empty scratch notebooks and an empty test placeholder were removed during cleanup.
 - The Docker production entrypoint named a nonexistent module. It now runs
   `python -m sparq`, allowing the existing launcher to pass `-t` as an argument.
 - Test relocation exposed a Bedrock mock's order dependence. Its runtime client now
@@ -123,3 +121,15 @@ Before additional moves, inspect contents, dependencies, links, and tracking sta
 Adjust destinations when evidence supports a better fit, and update this record.
 Changes to behavior, deletion, serialized contracts, or publication of local drafts
 require a separate scope decision.
+
+## Cleanup follow-up
+
+The cleanup removed `CLAUDE.md`, the unused formatter, legacy settings/defaults,
+unused helper functions, and empty placeholders. Full dataset descriptions now
+have one canonical bundled file, `data_summaries_full.json`, alongside the short
+planner descriptions. Existing external user files were not deleted.
+
+The unused Ollama pair, appdirs, and cloudpickle direct dependencies were removed.
+`deepagents` is retained by explicit user instruction. The namespace test now uses
+unittest discovery. The CLI rejects unimplemented v2 instead of returning success.
+The excluded aggregator and namespace implementation files remain unchanged.

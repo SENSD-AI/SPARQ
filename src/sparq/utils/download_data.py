@@ -65,7 +65,6 @@ def main():
     Main function to download all datasets.
     """
     HF_TOKEN = ENVSettings().hf_token
-    print(f"Using Hugging Face token: {HF_TOKEN}")
 
     if HF_TOKEN is None:
         raise ValueError("HF_TOKEN is not set. Please add it to your .env file.")

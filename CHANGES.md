@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## Historical dependency upgrade record
+
+This section records the earlier upgrade snapshot, not current versions or test
+counts. See `pyproject.toml`, `uv.lock`, and `docs/progress/` for current evidence.
 
 ### Dependencies — LangChain / LangGraph major version upgrade
 

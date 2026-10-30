@@ -1,7 +1,6 @@
 # utils.py
-# Only stdlib imports at the top level — see docs/repl.md for why.
+# Only stdlib imports at the top level — see docs/architecture/repl.md for why.
 import json
-import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -31,96 +30,6 @@ def load_text(file_path):
 
     return text
 
-def save_text(text, filepath, time_stamp=True):
-    import datetime
-    
-    # Save response
-    now = datetime.datetime.now()
-    timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
-    
-    if time_stamp: file_path = file_path + timestamp
-
-    with open(file_path, 'w') as f:
-        f.write(text)
-
-
-def get_df_summary(df):
-    from pandas import DataFrame
-    summary = DataFrame({
-        'Column': df.columns,
-        'Non-Null Count': df.notnull().sum(),
-        'Dtype': df.dtypes
-    })
-    
-    return summary.to_markdown()
-    
-def get_df_summary_from_excel(file_path) -> dict[str, str]:
-    import pandas as pd
-    
-    """
-    Loads an Excel file and returns the summaries of all sheets in markdown format.
-    
-    Args:
-        file_path (str): Path to the Excel file.
-        
-    Returns:
-        str: Markdown formatted string of sheet summaries.
-    """
-    xls = pd.ExcelFile(file_path)
-    df_summaries = {}
-    
-    for sheet_name in xls.sheet_names:
-        df = pd.read_excel(xls, sheet_name=sheet_name)
-        
-        try:
-            summary = get_df_summary(df)
-        except Exception:
-            raise Exception(f"could not summarise: {file_path}'s sheet {sheet_name} to markdown")
-            
-        df_summaries[sheet_name] = summary
-    
-    return df_summaries
-
-def get_df_summaries_from_manifest(manifest: dict[str, dict[str, str]]) -> dict[str, str]:
-    """
-    Extracts data summaries from a manifest dictionary.
-
-    Args:
-        manifest (dict): Dictionary containing dataset information.
-
-    Returns:
-        dict: Dictionary with sheet names as keys and data summaries (columns, non null counts, dtypes) in markdown format as values.
-    """
-    import pandas as pd
-
-    from sparq.tools.data_discovery_tools import (
-        find_csv_excel_files,
-        get_cached_dataset_path,
-    )
-
-    df_summaries = {}
-    
-    for dataset, info in manifest.items():
-        df_summaries[dataset] = {} # create sub dictionary for each dataset
-        repo_id = info.get('repo_id')
-        location: Path = get_cached_dataset_path.invoke(repo_id)
-        
-        files = find_csv_excel_files.invoke({'root_dir': location})
-        for file in files:
-            # get excels and csvs
-            if file.suffix == '.xlsx' or file.suffix == '.csv':
-                subdata_name = file.name # file name
-                df_summaries[dataset][subdata_name] = None # initialize for storing df.head later
-                # Get head
-                if file.suffix == '.csv':
-                    df = pd.read_csv(file)
-                    df_summaries[dataset][subdata_name] = get_df_summary(df)
-                elif file.suffix == '.xlsx':
-                    df_heads : dict[str, str] = get_df_summary_from_excel(file) # df_heads is a dict with {sheet: df_head_markdown}
-                    df_summaries[dataset][subdata_name] = df_heads
-                        
-    return df_summaries
-               
 
 def get_user_query(args=None, config=None):
     if args is not None and args.test:
@@ -157,28 +66,6 @@ def dump_dict_to_json(dict, save_path):
         print(f"Dictionary successfully saved to {save_path}")
     except Exception as e:
         raise IOError(f"Could not write to file {save_path}:\n{e}")
-    
-def load_data_manifest(path_to_manifest_file) -> dict[str, dict[str, str]]:
-    """
-    Load a data manifest file and return its contents.
-    """
-    
-    if not os.path.exists(path_to_manifest_file):
-        raise FileNotFoundError(f"Manifest file not found: {path_to_manifest_file}")
-    
-    with open(path_to_manifest_file, 'r') as f:
-        manifest: dict = json.load(f)
-    
-    return manifest
-
-def get_data_repoIDs(path_to_manifest_file):
-    """
-    Get the repository IDs of datasets from the manifest file.
-    """
-    manifest = load_data_manifest(path_to_manifest_file)
-    repo_ids = {dataset: info['repo_id'] for dataset, info in manifest.items() if 'repo_id' in info}
-    
-    return repo_ids
 
 
 def render_records_table(
@@ -224,16 +111,3 @@ def render_records_table(
 
     console.print(table)
     return
-
-# Tests
-# if __name__ == "__main__":   
-#     from config.config import Config
-
-#     config = Config()
-#     breakpoint()
-#     manifest_path = os.path.join(config.BASE_DIR, "data_manifest.json")
-#     manifest_dict= load_data_manifest(manifest_path)
-    
-#     df_heads = get_df_summaries_from_manifest(manifest_dict)
-    
-#     print(df_heads)
