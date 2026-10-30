@@ -13,7 +13,10 @@ class TestGetLLM(unittest.TestCase):
 
     @patch('boto3.Session')
     def test_aws(self, mock_session):
-        mock_session.return_value.client.return_value = Mock()
+        client = Mock()
+        # Bedrock may infer its control-plane region from the runtime client.
+        client.meta.region_name = "us-east-1"
+        mock_session.return_value.client.return_value = client
 
         model = "us.anthropic.claude-3-5-haiku-20241022-v1:0"
         llm = get_llm(model=model, provider='aws_bedrock')

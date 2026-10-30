@@ -65,8 +65,9 @@ exclude = [
     "build",
     "dist",
     "output",
-    "scratch",
-    "notebooks",
+    "sandbox",
+    "manuscripts",
+    "benchmarks",
 ]
 
 # Third-party packages sometimes expose incomplete typing.

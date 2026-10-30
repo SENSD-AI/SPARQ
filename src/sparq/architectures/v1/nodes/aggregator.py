@@ -8,7 +8,7 @@ from langchain_core.messages import AIMessage
 from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 
 from sparq.logging_config import logger
-from sparq.schemas.output_schemas import StepResult
+from sparq.schemas.planning import StepResult
 from sparq.schemas.state import State
 from sparq.settings import LLMSetting
 from sparq.tools.artifact_tools import ArtifactTools

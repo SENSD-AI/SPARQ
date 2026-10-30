@@ -19,8 +19,8 @@ with patch("tiktoken.get_encoding", return_value=Mock(encode=lambda text: list(t
     from sparq.architectures.v1.nodes import aggregator, executor
     from sparq.architectures.v1.system import Agentic_system
 
-from sparq.architectures.v1.helpers.organizer import Index
-from sparq.schemas.output_schemas import Plan, Step, StepResult
+from sparq.architectures.v1.artifacts import Index
+from sparq.schemas.planning import Plan, Step, StepResult
 from sparq.schemas.state import State
 from sparq.settings import LLMSetting
 from sparq.tools.image_processing import image_analysis_tool

@@ -1,8 +1,8 @@
 """Run repeatable, bounded batch evaluations over the question dataset.
 
-The script selects eligible questions from ``data/Q_dataset.json``, executes
+The script selects eligible questions from ``benchmarks/datasets/questions.json``, executes
 each question for the requested number of iterations, and writes a manifest
-and per-run artifacts under ``eval/results/batch_eval``. Individual run
+and per-run artifacts under ``benchmarks/results/batch_eval``. Individual run
 failures are recorded in the manifest so the remaining runs can continue;
 unexpected orchestration failures cancel outstanding work before the batch is
 finalized.
@@ -22,11 +22,8 @@ from typing import TypedDict, cast
 
 from sparq.architectures.v1.settings import V1Settings
 from sparq.architectures.v1.system import Agentic_system
-from sparq.schemas.output_schemas import (
-    BatchEvalOutput,
-    BatchRunEntry,
-    EvaluationContext,
-)
+from sparq.schemas.evaluation import BatchEvalOutput, BatchRunEntry
+from sparq.schemas.runs import EvaluationContext
 from sparq.settings import ENVSettings
 from sparq.utils.get_package_dir import get_project_root
 
@@ -36,8 +33,8 @@ _project_root = get_project_root()
 if _project_root is None:
     raise RuntimeError("Could not locate project root")
 PROJECT_ROOT: Path = _project_root
-FILE_PATH = PROJECT_ROOT / "data" / "Q_dataset.json"
-RESULTS_ROOT = Path(__file__).parent / "results" / "batch_eval"
+FILE_PATH = PROJECT_ROOT / "benchmarks" / "datasets" / "questions.json"
+RESULTS_ROOT = PROJECT_ROOT / "benchmarks" / "results" / "batch_eval"
 
 
 def positive_int(value: str) -> int:
@@ -72,7 +69,7 @@ def parse_args() -> argparse.Namespace:
         The parsed command-line namespace.
     """
     parser = argparse.ArgumentParser(
-        description="Run batch evaluation on SPARQ over test questions in data/Q_dataset",
+        description="Run batch evaluation on SPARQ over test questions in benchmarks/datasets/questions.json",
     )
     parser.add_argument("-n", "--n_questions", type=positive_int, default=1)
     parser.add_argument("-k", "--iterations", type=positive_int, default=1)

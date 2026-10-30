@@ -1,7 +1,7 @@
 import difflib
 from pathlib import Path
 
-from ..architectures.v1.helpers.organizer import Index
+from ..architectures.v1.artifacts import Index
 
 SEARCH_RESULT_LIMIT = 5
 FUZZY_MATCHING_CUTOFF = 0.6

@@ -13,7 +13,7 @@ from langgraph.graph import END, START, StateGraph
 from pypdf import PdfReader
 
 from sparq.architectures.v1.nodes.router import router_node
-from sparq.schemas.output_schemas import Router
+from sparq.schemas.planning import Router
 from sparq.schemas.state import State
 from sparq.settings import LLMSetting
 

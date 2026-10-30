@@ -7,7 +7,7 @@ from rich.panel import Panel
 from rich.pretty import Pretty
 
 from sparq.architectures.v1.settings import V1Settings
-from sparq.schemas.output_schemas import SystemOutput
+from sparq.schemas.runs import SystemOutput
 from sparq.settings import ENVSettings
 from sparq.utils import helpers
 

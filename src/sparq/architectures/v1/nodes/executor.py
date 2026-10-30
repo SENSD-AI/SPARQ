@@ -11,7 +11,7 @@ from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 from langchain_core.runnables.config import RunnableConfig
 
 from sparq.logging_config import logger
-from sparq.schemas.output_schemas import Plan, Step, StepResult
+from sparq.schemas.planning import Plan, Step, StepResult
 from sparq.schemas.state import State
 from sparq.settings import LLMSetting
 from sparq.tools.artifact_tools import ArtifactTools
@@ -28,7 +28,7 @@ from sparq.tools.python_repl.python_repl_tool import make_python_repl_tool
 from sparq.utils import helpers
 from sparq.utils.get_llm import get_llm
 
-from ..helpers.organizer import INDEX_FNAME, Index, organize
+from ..artifacts import INDEX_FNAME, Index, organize
 
 MAX_NAMESPACE_VARS_WARNING = 30
 MAX_RETRY = 3
@@ -299,7 +299,7 @@ async def test_executor(plan: Plan):
         print(result)
 
 if __name__ == "__main__":
-    from sparq.schemas.output_schemas import Step
+    from sparq.schemas.planning import Step
 
     sample_plan = Plan(
         steps=[

@@ -22,7 +22,7 @@ from reportlab.platypus import (
     Table,
 )
 
-from sparq.architectures.v1.helpers.report import parse_report
+from sparq.architectures.v1.reporting.markdown import parse_report
 
 
 def _inline_markup(children: list[Token]) -> str:

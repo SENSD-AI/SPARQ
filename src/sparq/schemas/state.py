@@ -7,7 +7,7 @@ from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field
 
 from sparq.schemas.data_context import DataContext
-from sparq.schemas.output_schemas import Plan, StepResult
+from sparq.schemas.planning import Plan, StepResult
 
 id = int  # Type Alias
 

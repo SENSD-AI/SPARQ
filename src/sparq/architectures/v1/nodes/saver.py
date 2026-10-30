@@ -4,8 +4,8 @@ from pathlib import Path
 
 from langchain_core.messages import AIMessage
 
-from sparq.architectures.v1.helpers.organizer import organize_report
-from sparq.architectures.v1.helpers.report import ReportMetadata
+from sparq.architectures.v1.reporting.bundle import organize_report
+from sparq.architectures.v1.reporting.markdown import ReportMetadata
 from sparq.architectures.v1.settings import V1LLMSettings
 from sparq.logging_config import logger
 from sparq.schemas.state import State

@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from sparq.architectures.v1.helpers.organizer import Index
+from sparq.architectures.v1.artifacts import Index
 from sparq.tools.artifact_tools import ArtifactTools
 
 

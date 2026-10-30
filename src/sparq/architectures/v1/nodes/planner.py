@@ -4,7 +4,7 @@ from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 from sparq.architectures.v1.settings import V1Settings
 from sparq.logging_config import logger
 from sparq.schemas.data_context import DataContext, load_data_context
-from sparq.schemas.output_schemas import Plan
+from sparq.schemas.planning import Plan
 from sparq.schemas.state import State
 from sparq.settings import (
     DATA_MANIFEST_PATH,

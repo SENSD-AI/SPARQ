@@ -5,7 +5,7 @@ from pathlib import Path
 
 from langchain_core.messages import AIMessage
 
-from sparq.schemas.output_schemas import StepResult
+from sparq.schemas.planning import StepResult
 from sparq.schemas.state import State
 from sparq.utils.helpers import write_json
 

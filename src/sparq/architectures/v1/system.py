@@ -18,7 +18,7 @@ from sparq.architectures.v1.nodes.saver import saver_node
 # from sparq.settings_old import Settings
 from sparq.architectures.v1.settings import V1Settings
 from sparq.logging_config import logger, run_log_context
-from sparq.schemas.output_schemas import EvaluationContext, SystemOutput
+from sparq.schemas.runs import EvaluationContext, SystemOutput
 from sparq.schemas.state import State
 from sparq.tools.python_repl.namespace import cleanup_run
 from sparq.utils.get_llm import get_llm

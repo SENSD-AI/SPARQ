@@ -1,16 +1,8 @@
-import json
+"""Index and organize executor artifacts by file category."""
+
 from pathlib import Path
-from typing import Literal
 
 from pydantic import BaseModel, Field
-
-from sparq.architectures.v1.helpers.report import (
-    ReportMetadata,
-    assemble_report,
-    generate_references,
-)
-from sparq.architectures.v1.helpers.report_pdf import generate_pdf
-from sparq.schemas.state import State
 
 
 class Index(BaseModel):
@@ -19,44 +11,12 @@ class Index(BaseModel):
     docs: dict[str, Path] = Field(default_factory=dict)
     other: dict[str, Path] = Field(default_factory=dict)
 
-INDEX_FNAME = 'index.json'
 
-FIGURE_FTYPES = ['.png', '.jpg', '.jpeg', '.svg', '.gif', '.tif', '.tiff']
-TABULAR_FTYPES = ['.csv', '.tsv', '.xls', '.xlsx', '.parquet']
-DOC_FTYPES = ['.txt', '.md', '.pdf', '.doc', '.docx', '.html']
+INDEX_FNAME = "index.json"
 
-
-def organize_report(
-    markdown: str, run_dir: Path, metadata: ReportMetadata | None = None,
-) -> Path:
-    """Write the final report bundle without moving executor artifacts.
-
-    Write Markdown first so it remains available if PDF rendering fails.
-    A bibliography is emitted only when numbered reference entries exist.
-    """
-    if not markdown.strip():
-        raise ValueError('Cannot organize an empty report.')
-    assembled = assemble_report(markdown, metadata)
-    bibliography = generate_references(markdown)
-    report_dir = run_dir / 'report'
-    report_dir.mkdir(parents=True, exist_ok=True)
-    markdown_path = report_dir / 'report.md'
-    markdown_path.write_text(assembled, encoding='utf-8')
-    bibliography_path = report_dir / 'ref.bib'
-    if bibliography:
-        bibliography_path.write_text(bibliography, encoding='utf-8')
-    else:
-        bibliography_path.unlink(missing_ok=True)
-    # Do not leave an old PDF beside an updated Markdown report if rendering fails.
-    pdf_path = report_dir / 'report.pdf'
-    pdf_path.unlink(missing_ok=True)
-    temporary_pdf = report_dir / 'report.tmp.pdf'
-    try:
-        generate_pdf(markdown_path, temporary_pdf)
-        temporary_pdf.replace(pdf_path)
-    finally:
-        temporary_pdf.unlink(missing_ok=True)
-    return report_dir
+FIGURE_FTYPES = [".png", ".jpg", ".jpeg", ".svg", ".gif", ".tif", ".tiff"]
+TABULAR_FTYPES = [".csv", ".tsv", ".xls", ".xlsx", ".parquet"]
+DOC_FTYPES = [".txt", ".md", ".pdf", ".doc", ".docx", ".html"]
 
 
 def organize(working_dir: Path) -> list[Path] | None:
@@ -89,7 +49,6 @@ def organize(working_dir: Path) -> list[Path] | None:
     ):
         indexed_paths.update(category.values())
 
-
     new_artifacts = []
     for artifact_path in list(working_dir.rglob("*")):
         if artifact_path.is_file() and artifact_path != index_path:
@@ -105,27 +64,27 @@ def organize(working_dir: Path) -> list[Path] | None:
         return new_artifacts
 
 
-def organize_artifact(index: Index, artifact_path: Path, working_dir: Path)-> Path:
+def organize_artifact(index: Index, artifact_path: Path, working_dir: Path) -> Path:
     """Move a relative artifact path into its category and update Index in memory.
 
     Paths stored in Index are relative to working_dir.
     """
     suffix = artifact_path.suffix.lower()
     if suffix in FIGURE_FTYPES:
-        category = 'figures'
-        subindex_letter = 'f'
+        category = "figures"
+        subindex_letter = "f"
         indexed_artifacts = index.figures
     elif suffix in TABULAR_FTYPES:
-        category = 'tables'
-        subindex_letter = 't'
+        category = "tables"
+        subindex_letter = "t"
         indexed_artifacts = index.tables
     elif suffix in DOC_FTYPES:
-        category = 'docs'
-        subindex_letter = 'd'
+        category = "docs"
+        subindex_letter = "d"
         indexed_artifacts = index.docs
     else:
-        category = 'other'
-        subindex_letter = 'o'
+        category = "other"
+        subindex_letter = "o"
         indexed_artifacts = index.other
 
     source = working_dir / artifact_path
@@ -134,7 +93,7 @@ def organize_artifact(index: Index, artifact_path: Path, working_dir: Path)-> Pa
 
     if source != destination:
         if destination.exists():
-            raise FileExistsError(f'Cannot overwrite existing artifact: {destination}')
+            raise FileExistsError(f"Cannot overwrite existing artifact: {destination}")
         destination.parent.mkdir(parents=True, exist_ok=True)
         source.rename(destination)
 
@@ -144,7 +103,7 @@ def organize_artifact(index: Index, artifact_path: Path, working_dir: Path)-> Pa
             latest_subindex_number = int(latest_subindex[1:])
         else:
             latest_subindex_number = 0
-        new_subindex = subindex_letter + str(latest_subindex_number+1)
+        new_subindex = subindex_letter + str(latest_subindex_number + 1)
         indexed_artifacts[new_subindex] = relative_destination
 
     return relative_destination

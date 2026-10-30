@@ -8,7 +8,12 @@ from types import SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock, patch
 
-from eval.batch_eval import (
+from sparq.architectures.v1.settings import V1Settings
+from sparq.architectures.v1.system import Agentic_system
+from sparq.evaluation.batch import (
+    FILE_PATH,
+    PROJECT_ROOT,
+    RESULTS_ROOT,
     Question,
     create_batch,
     execute_batch,
@@ -20,15 +25,8 @@ from eval.batch_eval import (
     update_batch_summary,
     write_json_atomic,
 )
-from sparq.architectures.v1.settings import V1Settings
-from sparq.architectures.v1.system import Agentic_system
-from sparq.schemas.output_schemas import (
-    BatchEvalOutput,
-    BatchRunEntry,
-    BatchStatus,
-    RunStatus,
-    SystemOutput,
-)
+from sparq.schemas.evaluation import BatchEvalOutput, BatchRunEntry, BatchStatus
+from sparq.schemas.runs import RunStatus, SystemOutput
 
 
 class TestBatchSummary(unittest.TestCase):
@@ -47,7 +45,7 @@ class TestBatchSummary(unittest.TestCase):
         return BatchEvalOutput(
             batch_id="batch-1",
             time_started=datetime.now(timezone.utc),
-            dataset_path=Path("data/Q_dataset.json"),
+            dataset_path=Path("benchmarks/datasets/questions.json"),
             dataset_hash="sha256:test",
             question_filter={},
             requested_question_count=len(runs),
@@ -99,7 +97,7 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
         self.batch = BatchEvalOutput(
             batch_id="batch-1",
             time_started=datetime.now(timezone.utc),
-            dataset_path=Path("data/Q_dataset.json"),
+            dataset_path=Path("benchmarks/datasets/questions.json"),
             dataset_hash="sha256:test",
             question_filter={"weather_related": False},
             requested_question_count=1,
@@ -137,7 +135,7 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
         )
         agent = SimpleNamespace(run=AsyncMock(return_value=output))
 
-        with patch("eval.batch_eval.Agentic_system", return_value=agent):
+        with patch("sparq.evaluation.batch.Agentic_system", return_value=agent):
             await execute_run(
                 asyncio.Semaphore(1), self.settings, self.question,
                 self.entry, self.batch, self.manifest_path,
@@ -157,7 +155,7 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
     async def test_failed_run_records_the_exception(self):
         agent = SimpleNamespace(run=AsyncMock(side_effect=RuntimeError("model unavailable")))
 
-        with patch("eval.batch_eval.Agentic_system", return_value=agent):
+        with patch("sparq.evaluation.batch.Agentic_system", return_value=agent):
             await execute_run(
                 asyncio.Semaphore(1), self.settings, self.question,
                 self.entry, self.batch, self.manifest_path,
@@ -178,7 +176,7 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(manifest["runs"][0]["status"], "pending")
 
     async def test_setup_failure_is_recorded(self):
-        with patch("eval.batch_eval.Agentic_system", side_effect=ValueError("bad prompts")):
+        with patch("sparq.evaluation.batch.Agentic_system", side_effect=ValueError("bad prompts")):
             await execute_run(
                 asyncio.Semaphore(1), self.settings, self.question,
                 self.entry, self.batch, self.manifest_path,
@@ -198,12 +196,12 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
         for status, expected in (("completed", 0), ("completed_with_errors", 1), ("failed", 1)):
             with self.subTest(status=status):
                 self.batch.status = cast(BatchStatus, status)
-                with patch("eval.batch_eval.parse_args", return_value=SimpleNamespace(n_questions=1, iterations=1, evaluation_id=None)), patch(
-                    "eval.batch_eval.load_questions", return_value=[self.question],
-                ), patch("eval.batch_eval.ENVSettings"), patch(
-                    "eval.batch_eval.V1Settings", return_value=self.settings,
-                ), patch("eval.batch_eval.create_batch", return_value=(self.batch, self.manifest_path.parent)), patch(
-                    "eval.batch_eval.execute_batch", new_callable=AsyncMock,
+                with patch("sparq.evaluation.batch.parse_args", return_value=SimpleNamespace(n_questions=1, iterations=1, evaluation_id=None)), patch(
+                    "sparq.evaluation.batch.load_questions", return_value=[self.question],
+                ), patch("sparq.evaluation.batch.ENVSettings"), patch(
+                    "sparq.evaluation.batch.V1Settings", return_value=self.settings,
+                ), patch("sparq.evaluation.batch.create_batch", return_value=(self.batch, self.manifest_path.parent)), patch(
+                    "sparq.evaluation.batch.execute_batch", new_callable=AsyncMock,
                 ):
                     self.assertEqual(await main(), expected)
 
@@ -242,7 +240,7 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
             return SimpleNamespace(run=run)
 
         original_run_dir = self.settings.paths.run_dir
-        with patch("eval.batch_eval.Agentic_system", side_effect=make_system):
+        with patch("sparq.evaluation.batch.Agentic_system", side_effect=make_system):
             await execute_batch(self.batch, self.manifest_path.parent / "batch", [self.question], self.settings)
         self.assertEqual(peak, 2)
         self.assertEqual(self.batch.status, "completed")
@@ -262,7 +260,7 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
                 stopped.set()
 
         batch_dir = self.manifest_path.parent / "batch"
-        with patch("eval.batch_eval.Agentic_system", return_value=SimpleNamespace(run=run)):
+        with patch("sparq.evaluation.batch.Agentic_system", return_value=SimpleNamespace(run=run)):
             task = asyncio.create_task(execute_batch(self.batch, batch_dir, [self.question], self.settings))
             await started.wait()
             task.cancel()
@@ -277,7 +275,7 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
     async def test_run_failure_does_not_stop_batch(self):
         self.plan_runs()
         run = AsyncMock(side_effect=[RuntimeError("failed"), None, None, None, None, None])
-        with patch("eval.batch_eval.Agentic_system", return_value=SimpleNamespace(run=run)):
+        with patch("sparq.evaluation.batch.Agentic_system", return_value=SimpleNamespace(run=run)):
             await execute_batch(self.batch, self.manifest_path.parent / "batch", [self.question], self.settings)
         self.assertEqual(self.batch.failed_runs, 1)
         self.assertEqual(self.batch.completed_runs, 5)
@@ -304,8 +302,8 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
             real_persist(*args, **kwargs)
 
         batch_dir = self.manifest_path.parent / "batch"
-        with patch("eval.batch_eval.Agentic_system", return_value=SimpleNamespace(run=run)), patch(
-            "eval.batch_eval.persist_manifest", side_effect=fail_once,
+        with patch("sparq.evaluation.batch.Agentic_system", return_value=SimpleNamespace(run=run)), patch(
+            "sparq.evaluation.batch.persist_manifest", side_effect=fail_once,
         ):
             with self.assertRaisesRegex(OSError, "disk failure"):
                 await execute_batch(self.batch, batch_dir, [self.question], self.settings)
@@ -315,12 +313,32 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
 
 
 class TestInputAndPersistence(unittest.TestCase):
+    def test_repository_dataset_links_to_the_new_batch_location(self):
+        questions = load_questions(FILE_PATH, limit=1)
+        batch, batch_dir = create_batch(questions, 1, 1, {})
+
+        self.assertEqual(batch.dataset_path, Path("benchmarks/datasets/questions.json"))
+        self.assertEqual(RESULTS_ROOT, PROJECT_ROOT / "benchmarks/results/batch_eval")
+        self.assertEqual(batch_dir.parent, RESULTS_ROOT)
+        self.assertEqual(batch.selected_question_ids, [questions[0]["id"]])
+        self.assertFalse(questions[0]["weather_related"])
+        self.assertNotEqual(questions[0]["grade"], -1)
+
+        with tempfile.TemporaryDirectory() as directory:
+            manifest_path = Path(directory) / "batch.json"
+            persist_manifest(batch, manifest_path)
+            saved = BatchEvalOutput.model_validate_json(manifest_path.read_text())
+
+        self.assertEqual(saved.dataset_path, batch.dataset_path)
+        self.assertEqual(saved.dataset_hash, batch.dataset_hash)
+        self.assertEqual(saved.runs[0].status, "pending")
+
     def test_separate_batches_share_evaluation_id_and_keep_unique_artifacts(self):
         question: Question = {"id": 1, "text": "Question", "grade": 4, "weather_related": False}
         with patch("sys.argv", ["batch_eval", "-k", "1", "--evaluation-id", "baseline-v1"]):
             args = parse_args()
-        with patch("eval.batch_eval.hash_file", return_value="sha256:test"), patch(
-            "eval.batch_eval.get_code_version", return_value={},
+        with patch("sparq.evaluation.batch.hash_file", return_value="sha256:test"), patch(
+            "sparq.evaluation.batch.get_code_version", return_value={},
         ):
             first, first_dir = create_batch([question], 1, args.iterations, {}, args.evaluation_id)
             second, second_dir = create_batch([question], 1, args.iterations, {}, args.evaluation_id)

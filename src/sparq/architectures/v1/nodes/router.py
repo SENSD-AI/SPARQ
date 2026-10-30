@@ -3,7 +3,7 @@ from typing import cast
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from sparq.logging_config import logger
-from sparq.schemas.output_schemas import Router
+from sparq.schemas.planning import Router
 from sparq.schemas.state import State
 from sparq.settings import LLMSetting
 from sparq.utils.get_llm import get_llm

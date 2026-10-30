@@ -8,8 +8,8 @@ from pathlib import Path
 from PIL import Image
 from pypdf import PdfReader
 
-from sparq.architectures.v1.helpers.organizer import organize_report
-from sparq.architectures.v1.helpers.report import (
+from sparq.architectures.v1.reporting.bundle import organize_report
+from sparq.architectures.v1.reporting.markdown import (
     ReportMetadata,
     assemble_report,
     generate_list_of_figures,
