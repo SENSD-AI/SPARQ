@@ -48,7 +48,7 @@ The key insight: steps that share no `depends_on` relationship can each get thei
 
 ### Schema change
 
-Add one field to `Step` in `src/sparq/schemas/output_schemas.py`:
+Add one field to `Step` in `src/sparq/schemas/planning.py`:
 
 ```python
 class Step(BaseModel):
@@ -182,7 +182,7 @@ If variable name collisions become a real problem in practice, a simple mitigati
 
 | File | Change | Why |
 |------|--------|-----|
-| `src/sparq/schemas/output_schemas.py` | Add `depends_on: list[int] = []` to `Step` | Schema must carry dependency info for the executor to batch correctly |
+| `src/sparq/schemas/planning.py` | Add `depends_on: list[int] = []` to `Step` | Schema must carry dependency info for the executor to batch correctly |
 | `src/sparq/architectures/v1/nodes/executor.py` | `executor_node` → `async def`; `process_step` → `async def`; sequential loop → topological batch loop; `agent.invoke` → `agent.ainvoke`; add sub-agent construction, namespace seed/merge/cleanup | Core execution logic |
 | `src/sparq/tools/python_repl/namespace.py` | No changes to signatures or logic | `get_ns_path(sub_agent_id)`, `cleanup_ns(sub_agent_id)`, `load_ns(sub_ns_path)` are reused as-is — they already accept arbitrary string IDs |
 | `src/sparq/architectures/v1/system.py` | No changes | `run_id` creation and graph wiring are unchanged; LangGraph handles sync and async node functions transparently |
@@ -271,7 +271,7 @@ convenience, it's whether step-completion state is resumable from outside the ru
    `state.results` / `completed_plan_steps` a real, queryable value at a genuine checkpoint
    boundary mid-run — a tracker (or a reconnecting user) can ask "what's done so far?" by reading
    the last checkpoint, even if the original connection dropped. This is the same poll/resume shape
-   [`why_not_deepagents.md`](why_not_deepagents.md) describes for deepagents' async subagents
+   [`why_not_deepagents.md`](../audits/why_not_deepagents.md) describes for deepagents' async subagents
    (`start_async_task`/`check_async_task`), except native to the graph itself, at step granularity,
    rather than wrapped around the whole pipeline.
 

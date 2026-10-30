@@ -6,8 +6,8 @@ across ablations/models and fed to a judge later. Its target fields are:
 | Field | Type | Source |
 |---|---|---|
 | `run_id` | `str` | generated in `Agentic_system.run()` and returned as part of `SystemOutput` |
-| `query` | `str` | `data/Q_dataset.json` question text |
-| `difficulty` | `int` | `data/Q_dataset.json`'s `grade` field per question |
+| `query` | `str` | `benchmarks/datasets/questions.json` question text |
+| `difficulty` | `int` | `benchmarks/datasets/questions.json`'s `grade` field per question |
 | `ablation_config` | `dict` | set by the experiment script itself (which nodes/settings vary per run) |
 | `response` | `str` | `State.answer`, written to `final_answer.json` by `saver_node` |
 | `token_out` | `int \| None` | SPARQ/LangSmith metadata, see below |
@@ -281,7 +281,7 @@ new `run_id` values when execution actually starts.
 Use the batch as the top-level storage unit and dataset question IDs as directory identifiers:
 
 ```text
-eval/results/batch_eval/
+benchmarks/results/batch_eval/
 └── <batch_id>/
     ├── batch.json
     ├── questions.json
@@ -327,7 +327,7 @@ their meaning.
 {
   "batch_id": "2026-08-13T14-05-22-CDT_7b3d0c2a",
   "status": "running",
-  "dataset_path": "data/Q_dataset.json",
+  "dataset_path": "benchmarks/datasets/questions.json",
   "dataset_hash": "sha256:...",
   "selected_question_ids": [1, 2],
   "iterations": 2,

@@ -20,12 +20,12 @@ uv run sparq -t
 
 # Run tests
 uv run python -m unittest          # all tests
-uv run python -m unittest tests.tools.test_executor   # single test module
+uv run python -m unittest tests.tools.python_repl.test_executor   # single test module
 
 # Run via scripts
-./scripts/run_scripts/run.sh       # local run
-./scripts/run_scripts/run_tests.sh # test suite
-./scripts/run_scripts/run_docker.sh # Docker build+run (prod or dev mode)
+./scripts/run.sh       # local run
+./scripts/run_tests.sh # test suite
+./scripts/run_docker.sh # Docker build+run (prod or dev mode)
 
 # Download datasets from HuggingFace Hub (zayanhugsAI)
 uv run python -m sparq.utils.download_data
@@ -48,13 +48,13 @@ START → router → [True] → planner → executor → aggregator → saver �
 
 | Node | File | Role |
 |------|------|------|
-| **Router** | `nodes/router.py` | Classifies query: needs data analysis (True) or direct answer (False) |
-| **Planner** | `nodes/planner.py` | ReAct agent; reads `data/data_manifest.json` and produces a structured `Plan` (list of `Step` objects) |
-| **Executor** | `nodes/executor.py` | ReAct agent; iterates over plan steps, runs Python code via the custom REPL |
-| **Aggregator** | `nodes/aggregator.py` | Plain LLM call that synthesizes executor results into a final narrative |
-| **Saver** | `nodes/saver.py` | Writes `trace.json` and `final_answer.json` to a timestamped `output/` directory |
+| **Router** | `architectures/v1/nodes/router.py` | Classifies query: needs data analysis (True) or direct answer (False) |
+| **Planner** | `architectures/v1/nodes/planner.py` | ReAct agent; reads `data/data_manifest.json` and produces a structured `Plan` (list of `Step` objects) |
+| **Executor** | `architectures/v1/nodes/executor.py` | ReAct agent; iterates over plan steps, runs Python code via the custom REPL |
+| **Aggregator** | `architectures/v1/nodes/aggregator.py` | Plain LLM call that synthesizes executor results into a final narrative |
+| **Saver** | `architectures/v1/nodes/saver.py` | Writes `trace.json` and `final_answer.json` to a timestamped `output/` directory |
 
-The graph is constructed in `src/sparq/system.py` (`Agentic_system` class) and executed asynchronously.
+The graph is constructed in `src/sparq/architectures/v1/system.py` (`Agentic_system` class) and executed asynchronously.
 
 ### Python REPL Subsystem (`tools/python_repl/`)
 
@@ -70,8 +70,9 @@ Entry point for tool use: `tools/python_repl/python_repl_tool.py` (`@tool` decor
 ### Key Schema Types (`schemas/`)
 
 - `State` (TypedDict) — LangGraph state flowing through the graph; defined in `schemas/state.py`
-- `Plan`, `Step` — structured planner output; `Step` has `dataset_name`, `rationale`, `task_type`
-- `Router`, `ExecutorOutput` — structured outputs for router and executor nodes
+- `Plan`, `Step` — structured planner output in `schemas/planning.py`; `Step` records dataset choices, rationale, task types, and dependencies
+- `Router`, `StepResult` — router and executor results in `schemas/planning.py`
+- Run contracts live in `schemas/runs.py`; batch manifests live in `schemas/evaluation.py`
 
 ### Settings and Configuration
 

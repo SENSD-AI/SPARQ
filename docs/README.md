@@ -1,35 +1,10 @@
-# Docs Index
+# Documentation
 
-- **[improvements.md](improvements.md)** — master v2 roadmap; priority-ranked list of architectural improvements, links out to the design docs below.
-
-## Design docs — for specific improvements
-
-- [artifact_organizer.md](artifact_organizer.md) — post-executor node that organizes output files (improvement #12)
-- [experiment_output_schema.md](experiment_output_schema.md) — single-run and batch-evaluation output schemas, result layout, linkage, and status lifecycle
-- [multi_turn_support.md](multi_turn_support.md) — multi-turn chat support for `State` and the v1 graph
-- [parallel_execution.md](parallel_execution.md) — step dependency tracking and concurrent execution of plan steps (improvement #1)
-- [subtask_parallelism.md](subtask_parallelism.md) — sub-task parallelism within a worker via `async_subagent_tool` (improvement #16)
-- [weather_tool.md](weather_tool.md) — adding a weather-lookup tool; geocoding and date-granularity complexities across datasets
-- [why_not_deepagents.md](why_not_deepagents.md) — rationale for not adopting LangGraph's `deepagents` module
-
-## Architecture — how existing subsystems work
-
-- [SPARQ architecture figure](figures/sparq_agentic_system.md) — rendered preview, [editable SVG](figures/sparq_agentic_system.svg), [vector PDF](figures/sparq_agentic_system.pdf), and [high-resolution PNG](figures/sparq_agentic_system.png)
-- [repl_architecture.md](repl_architecture.md) — how the executor invokes Python and how the REPL subsystem works end-to-end
-- [repl.md](repl.md) — REPL subsystem quirks and non-obvious constraints
-- [concurrency.md](concurrency.md) — notes on running multiple `sparq` invocations concurrently
-
-## Migration guides — adopting a new dependency or surface
-
-- [migration_langchain_langgraph.md](migration_langchain_langgraph.md) — upgrading the LangChain/LangGraph pin set to 1.x
-- [tui_migration.md](tui_migration.md) — turning SPARQ into a terminal chat app
-- [web_ui_migration.md](web_ui_migration.md) — turning SPARQ into a web chat app (LangGraph Studio / Agent Chat UI)
-
-## Setup
-
-- [aws/README.md](aws/README.md) — AWS Bedrock provider setup
-
-## Other
-
-- [progress_summaries/](progress_summaries/) — periodic dev progress summaries
-- [chapter_sparq_architecture.md](chapter_sparq_architecture.md) — manuscript draft, not an engineering doc
+- [Guides](guides/): [data setup](guides/data_setup.md), [report generation](guides/reports.md), and [AWS setup](guides/aws/README.md).
+- [Architecture](architecture/): [Python REPL](architecture/repl_architecture.md), [REPL constraints](architecture/repl.md), and [concurrency](architecture/concurrency.md).
+- [Proposals](proposals/): [project structure](proposals/project_structure.md), [improvements roadmap](proposals/improvements.md), and individual feature designs. A location here does not mean every section is unimplemented; consult each document's status and the code.
+- [Audits](audits/): [dependency compatibility](audits/migration_langchain_langgraph.md) and [Deep Agents assessment](audits/why_not_deepagents.md).
+- [Decisions](adr/): adopted architecture decisions.
+- [Progress](progress/): historical development summaries.
+- Architecture figures: [SVG](figures/sparq_agentic_system.svg), [PDF](figures/sparq_agentic_system.pdf), [PNG](figures/sparq_agentic_system.png).
+- [Manuscripts](../manuscripts/README.md): paper and thesis material, separate from engineering documentation.

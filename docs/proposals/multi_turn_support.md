@@ -1,7 +1,7 @@
 # Multi-Turn Conversation Support
 
 Design document for adding multi-turn chat support to `State` and the v1 graph. SPARQ is meant to
-be a chat application; `data/Q_dataset.json`'s `follow_ups` (conditional questions like "If high
+be a chat application; `benchmarks/datasets/questions.json`'s `follow_ups` (conditional questions like "If high
 risk -> could you give me a social media blurb?") are one eval slice of that, not the ceiling —
 real usage should support arbitrary-depth conversations, not just one follow-up.
 
@@ -291,7 +291,7 @@ between items that isn't visible until they're wired together).
   turn leaves the *previous* `True` turn's `plan`/`completed_plan_steps`/`results` sitting untouched
   in the checkpoint (harmless: the `False` branch goes straight to `saver`, which doesn't read them).
 - [ ] `experiments/00.py` / `todo.md`'s `Q_dataset` items (~0.5 day): use one `thread_id` per
-  top-level question in `data/Q_dataset.json`, iterate its `follow_ups` within that same thread so
+  top-level question in `benchmarks/datasets/questions.json`, iterate its `follow_ups` within that same thread so
   they actually test multi-turn behavior instead of running standalone. This also resolves the
   `run_dir` collision `todo.md` flags, once trace output is scoped per `thread_id`/turn as above.
 - [ ] Tests (~1 day): namespace path is stable across a simulated restart (fresh process-local

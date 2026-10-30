@@ -28,9 +28,9 @@
 
 ## 1. Step dependency + parallel execution
 
-**Files**: `src/sparq/schemas/output_schemas.py`, `src/sparq/architectures/v1/nodes/executor.py`
+**Files**: `src/sparq/schemas/planning.py`, `src/sparq/architectures/v1/nodes/executor.py`
 
-**Design doc**: [`docs/parallel_execution.md`](parallel_execution.md)
+**Design doc**: [`docs/proposals/parallel_execution.md`](parallel_execution.md)
 
 ### Problem
 
@@ -176,7 +176,7 @@ Currently `answer` is a plain string stored in state and dumped into `final_answ
 
 ## 7. Multi-route router for general use cases
 
-**Files**: `src/sparq/nodes/router.py`, `src/sparq/schemas/output_schemas.py`, `src/sparq/system.py`
+**Files**: `src/sparq/nodes/router.py`, `src/sparq/schemas/planning.py`, `src/sparq/system.py`
 
 The current router is binary (`route: bool`) — it only distinguishes "needs data analysis" from "answer directly." This locks the system into a single use case. As a product, the system needs to handle general queries such as image analysis, literature/research surveys, and open-ended conversation.
 
@@ -288,7 +288,7 @@ This lets the agent immediately identify the offending line without re-reading p
 
 **Files**: `src/sparq/architectures/v1/nodes/artifact_organizer.py` (new), `src/sparq/schemas/state.py`, `src/sparq/architectures/v1/system.py`
 
-**Design doc**: [`docs/artifact_organizer.md`](artifact_organizer.md)
+**Design doc**: [`docs/proposals/artifact_organizer.md`](artifact_organizer.md)
 
 **Supersedes improvements #4 and #5.** Improvement #3 (plot interpretation) is resolved separately as an executor tool (`interpret_image`) — the artifact organizer receives interpretations pre-computed in `ExecutorOutput` and folds them into the map.
 
@@ -420,7 +420,7 @@ Swapping `create_deep_agent` for `langchain.agents.create_agent` (same call shap
 
 **Files**: `src/sparq/architectures/v1/nodes/executor.py`, `src/sparq/architectures/v1/system.py`, `src/sparq/schemas/state.py`
 
-**Design doc**: [`docs/parallel_execution.md`](parallel_execution.md), "Future requirement: user-facing step-completion tracker" section
+**Design doc**: [`docs/proposals/parallel_execution.md`](parallel_execution.md), "Future requirement: user-facing step-completion tracker" section
 
 ### Problem
 
@@ -464,11 +464,11 @@ progress bar on an open connection turns out to be sufficient in practice, the `
 
 **Files**: `src/sparq/tools/async_subagent/subagent.py` (scaffolded, not yet implemented), `src/sparq/tools/python_repl/namespace.py`, `src/sparq/architectures/v1/nodes/executor.py`, `src/sparq/architectures/v1/prompts/executor_message.txt`
 
-**Design doc**: [`docs/subtask_parallelism.md`](subtask_parallelism.md)
+**Design doc**: [`docs/proposals/subtask_parallelism.md`](subtask_parallelism.md)
 
 ### Problem
 
-The executor parallelizes independent plan `Step`s (`docs/parallel_execution.md`), but a single
+The executor parallelizes independent plan `Step`s (`docs/proposals/parallel_execution.md`), but a single
 step's worker has no way to parallelize independent sub-parts of its own task — e.g. computing
 several unrelated statistics over the same loaded dataset happens one tool call at a time.
 
@@ -478,7 +478,7 @@ Considered and rejected: `SubAgentMiddleware` builds each subagent's tools once 
 agent-construction time, so every `task` call to the same subagent type would reuse one REPL tool
 bound to one fixed namespace path. Since sub-tasks here need to leave variables behind for the
 parent step (not just report text), concurrent `task` calls would race on the same namespace pickle
-file — the same class of bug `docs/improvements.md` #1 already solved at the step level.
+file — the same class of bug `docs/proposals/improvements.md` #1 already solved at the step level.
 
 ### Why not a single `spawn_subtasks(subtasks: list[str])` batching tool
 

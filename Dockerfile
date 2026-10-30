@@ -40,7 +40,7 @@ COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --frozen --no-dev
 
-ENTRYPOINT ["python", "-m", "sparq.main -t"]
+ENTRYPOINT ["python", "-m", "sparq"]
 CMD []
 
 # ---------- Development image ----------

@@ -1,6 +1,6 @@
 # Why Not LangGraph Deep Agents (For the Core Pipeline)
 
-A recurring question while designing [parallel execution](parallel_execution.md): LangGraph ships a
+A recurring question while designing [parallel execution](../proposals/parallel_execution.md): LangGraph ships a
 `deepagents` module with built-in planning and async subagents — doesn't that solve sparq's
 planning and parallelism needs out of the box? This doc lays out why the answer is "no, not for
 the Router → Planner → Executor → Aggregator → Saver pipeline" — and where deep-agents-style
@@ -28,9 +28,9 @@ shape to Claude Code itself than to a domain pipeline.
 deepagents' planning tool produces a freeform todo list the LLM manages for itself — useful for
 keeping a long agentic session organized, but it carries no schema.
 
-sparq's [`Planner`](../src/sparq/architectures/v1/nodes/planner.py) produces a typed `Plan` —
+sparq's [`Planner`](../../src/sparq/architectures/v1/nodes/planner.py) produces a typed `Plan` —
 a list of `Step` objects with `dataset_name`, `rationale`, `task_type` (and, after
-[improvement #1](improvements.md), `depends_on`) — derived from `data/data_manifest.json`. This
+[improvement #1](../proposals/improvements.md), `depends_on`) — derived from `data/data_manifest.json`. This
 isn't a convenience for the LLM; it's a contract the **executor programmatically depends on**: it
 drives which datasets get loaded, what context gets built per step, how results get structured for
 the aggregator, and (with the parallel-execution design) how steps get batched.
@@ -42,7 +42,7 @@ auditable, typed, and machine-consumable downstream. You'd be trading a schema f
 
 ## 2. The REPL is sparq's domain-specific core — deepagents doesn't replace it
 
-The most sophisticated part of sparq is [`tools/python_repl/`](repl_architecture.md): subprocess
+The most sophisticated part of sparq is [`tools/python_repl/`](../architecture/repl_architecture.md): subprocess
 isolation via `multiprocessing.spawn`, namespace persistence across steps via pickling, AST-based
 last-expression capture, whitelisted package auto-install. This is purpose-built for
 epidemiological data analysis workflows — load a dataset, transform it, keep variables alive
@@ -84,7 +84,7 @@ concurrently. But look at what they're built for versus what the executor needs:
 
 Using async subagents for the executor's batch fan-out would mean polling task IDs and
 reconstructing synchronous-feeling join semantics by hand — *more* moving parts than
-`asyncio.gather` + per-step namespaces (see [`parallel_execution.md`](parallel_execution.md)),
+`asyncio.gather` + per-step namespaces (see [`parallel_execution.md`](../proposals/parallel_execution.md)),
 which reuses primitives (`get_ns_path`, `cleanup_ns`, `load_ns`) that already exist. Forcing a
 polling abstraction onto a problem that's naturally a blocking join is friction, not a fit.
 
@@ -101,7 +101,7 @@ capabilities" — is a different product surface than the current single-shot pi
 - User keeps chatting, asks something else, comes back later: `check_async_task`
 - User changes their mind mid-investigation: `update_async_task` / `cancel_async_task`
 
-This maps directly onto items already on the v2 roadmap in [`improvements.md`](improvements.md) —
+This maps directly onto items already on the v2 roadmap in [`improvements.md`](../proposals/improvements.md) —
 the multi-route router's `research_survey` route and the `web_search_node` — which are exactly the
 kind of long-running, possibly-multi-turn research work that benefits from a checkable background
 task model rather than blocking the conversation.

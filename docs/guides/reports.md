@@ -34,7 +34,7 @@ without metadata retain their existing behavior.
 
 ## Helpers
 
-The helpers live under `src/sparq/architectures/v1/helpers/`:
+The helpers live under `src/sparq/architectures/v1/reporting/`:
 
 - `generate_toc`: links to headings below the level-one title, including nested
   headings and distinct anchors for repeated headings. The contents list uses
@@ -58,7 +58,7 @@ after its title; the aggregator must not also generate contents or figure/table 
 - Use ordinary paragraphs, emphasis, links, lists, fenced code, and pipe tables.
 - Put each PNG/JPEG figure in a standalone image paragraph. The image destination
   is relative to `report/`: `![Trend](../executor/figures/trend.png)`. For spaces,
-  use `![Trend](<../executor/figures/trend plot.png>)`. Filesystem tool calls still
+  use `![Trend](../executor/figures/trend%20plot.png)`. Filesystem tool calls still
   use paths relative to the run root, such as `executor/figures/trend.png`.
 - Use a separate caption paragraph beginning with `Figure 1:` or `Table 1:`.
   Number each kind in appearance order; the helpers preserve the supplied numbers.

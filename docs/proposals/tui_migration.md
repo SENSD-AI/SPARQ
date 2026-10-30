@@ -1,6 +1,6 @@
 # Turning SPARQ into a Terminal Chat App (TUI)
 
-Related: [docs/web_ui_migration.md](./web_ui_migration.md)
+Related: [docs/proposals/web_ui_migration.md](web_ui_migration.md)
 
 ## Context
 
@@ -11,7 +11,7 @@ reuses `langgraph dev` as a backend or runs fully in-process.
 
 ## Option A — TUI as a thin client of `langgraph dev` (recommended)
 
-If the [web UI migration](./web_ui_migration.md) steps 1–6 are done anyway (module-level graph
+If the [web UI migration](web_ui_migration.md) steps 1–6 are done anyway (module-level graph
 factory, `langgraph.json`, checkpointer via the dev server, `messages`-shaped `State`), a TUI is
 just another frontend hitting the same local API server — no custom conversation-loop or
 checkpointer code needed, since `langgraph dev` already provides threads/persistence/streaming.

@@ -254,4 +254,4 @@ The REPL subsystem, planner, router, saver, and all schemas except `State` are u
 | #5 Aggregator academic referencing | Scan output dir and build a figure manifest inside the aggregator node | The organizer produces richer metadata (interpretations from executor + step summaries from inspector) rather than a bare filename list |
 
 Improvement #3 (plot interpretation) is resolved separately as the `interpret_image`
-executor tool — see [`docs/improvements.md` #3](improvements.md).
+executor tool — see [`docs/proposals/improvements.md` #3](improvements.md).

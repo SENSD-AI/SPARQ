@@ -31,4 +31,4 @@ conventions. The renderer supports ordinary Markdown and pipe tables, rather tha
 arbitrary HTML or LaTeX. Contents use links without page numbers. PDF failures
 propagate, retaining the JSON answer and Markdown, without leaving a stale PDF.
 
-See [report generation](../reports.md) for the contract and helper entry points.
+See [report generation](../guides/reports.md) for the contract and helper entry points.

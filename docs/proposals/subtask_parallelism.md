@@ -12,7 +12,7 @@ sub-tasks need to write variables back into the step's namespace — not just re
 ## Problem
 
 The executor already parallelizes at the **plan-step** level: independent `Step`s in a batch each
-get their own worker agent and their own namespace (`docs/parallel_execution.md`). There is no
+get their own worker agent and their own namespace (`docs/proposals/parallel_execution.md`). There is no
 equivalent one level down — if a single step's worker realizes its own task decomposes into
 independent sub-parts (e.g. "compute three unrelated summary statistics over `df1`"), it currently
 has no way to fan those out; it does them one tool call at a time in its own agentic loop.
@@ -28,7 +28,7 @@ has no way to fan those out; it does them one tool call at a time in its own age
 
 If the worker's LLM fires multiple `task` calls in parallel in one turn, two concurrent invocations
 of the same subagent would both read-modify-write the same pickle file: a lost-update race. This is
-the same class of bug `docs/improvements.md` #1 already solved at the step level
+the same class of bug `docs/proposals/improvements.md` #1 already solved at the step level
 (seed/execute/merge/cleanup per-batch namespaces); the generic `task` tool has no equivalent,
 because its subagents are static, pre-compiled runnables, not built fresh per call.
 
@@ -119,7 +119,7 @@ from langchain.tools import tool
 from langchain.agents import create_agent
 from langchain_core.language_models import BaseChatModel
 
-from sparq.schemas.output_schemas import StepResult
+from sparq.schemas.planning import StepResult
 from sparq.tools.python_repl.namespace import get_ns_path, load_ns, save_ns, cleanup_ns, get_ns_lock
 from sparq.tools.python_repl.python_repl_tool import make_python_repl_tool
 from sparq.tools.data_discovery_tools import make_load_dataset_tool
@@ -286,9 +286,9 @@ ever needed, revisit this — it is a deliberate simplicity trade-off, not a tec
   (`MAX_NAMESPACE_VARS_WARNING`) when a step inherits too many variables from dependencies; merged
   sub-task variables should be checked against the same threshold.
 - **Schema size**: `task: str` is one required field — smaller than the rejected
-  `subtasks: list[str]` design, which matters given `docs/improvements.md` #14 (Bedrock
+  `subtasks: list[str]` design, which matters given `docs/proposals/improvements.md` #14 (Bedrock
   grammar-size blowup driven by tool schema complexity, not just tool count).
-- Cross-reference: `docs/why_not_deepagents.md`'s conclusion that intra-plan fan-out is a blocking
+- Cross-reference: `docs/audits/why_not_deepagents.md`'s conclusion that intra-plan fan-out is a blocking
   join, not a background/pollable task, applies identically one level down — no need to reconsider
   `deepagents`' async subagents for this.
 

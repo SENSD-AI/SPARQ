@@ -2,6 +2,11 @@
 
 SPARQ is a multi-agent LangGraph pipeline for Salmonella epidemiological research. It routes a natural-language query through a planner, executor, and aggregator to produce a structured analytical report.
 
+The Python package lives in `src/sparq/`. Repository assets are separated into
+[benchmarks](benchmarks/README.md), [documentation](docs/README.md),
+[manuscripts](manuscripts/README.md), and a development [sandbox](sandbox/README.md).
+See the [project structure](docs/proposals/project_structure.md) for the layout.
+
 > **Recommendation:** Use a UNIX-based OS (Linux, macOS) or WSL on Windows.
 
 ---
@@ -64,7 +69,7 @@ model = "gemini-2.5-flash"
 provider = "google_genai"
 ```
 
-Supported providers: `google_genai`, `openai`, `aws_bedrock`, `openrouter`. For AWS Bedrock setup see [docs/aws/README.md](docs/aws/README.md).
+Supported providers: `google_genai`, `openai`, `aws_bedrock`, `openrouter`. For AWS Bedrock setup see [docs/guides/aws/README.md](docs/guides/aws/README.md).
 
 You can also override the output directory and set a custom test query:
 
@@ -115,16 +120,19 @@ uv run sparq
 Run one batch-evaluation iteration and save its results:
 
 ```bash
-uv run python -m eval.batch_eval -n 10 -k 1 --evaluation-id baseline-v1
+uv run python -m sparq.evaluation.batch -n 10 -k 1 --evaluation-id baseline-v1
 ```
 
 Repeat this command later with the same `--evaluation-id` to group the batches
 into one evaluation. Each invocation gets a unique `batch_id` and saves its
-manifest and run artifacts under `eval/results/batch_eval/<batch_id>/`.
+manifest and run artifacts under `benchmarks/results/batch_eval/<batch_id>/`.
 The shared `evaluation_id` is stored in `batch.json` and each result's
 `evaluation_context`. Iteration numbers are local to each batch; this command
 evaluates the same first 10 eligible questions once each on every invocation.
 Omitting `--evaluation-id` leaves the batch ungrouped.
+
+Batch evaluation requires a repository checkout containing `benchmarks/datasets/`;
+these assets are not included in the installed Python package.
 
 ---
 
@@ -147,7 +155,7 @@ The saver generates the report bundle from the final assistant message. Empty
 figure/table lists are omitted. Figures stay in `executor/`; Markdown uses paths
 relative to `report/`, and the PDF embeds the images. Bibliography entries preserve
 the report's supplied references without inferring missing metadata. See
-[report generation](docs/reports.md) for the supported Markdown conventions.
+[report generation](docs/guides/reports.md) for the supported Markdown conventions.
 
 Where `~` resolves to:
 - **Linux / macOS:** `/home/<username>/tmp/sparq/output`
@@ -169,7 +177,7 @@ LangSmith tracing is also available if configured — see [API Keys](#api-keys).
 
 SPARQ is structured to support multiple pipeline architectures side by side. The current implementation lives under `src/sparq/architectures/v1/` and is configured via `config_v1.toml` — the `v1` suffix exists to leave room for a v2 architecture without breaking existing configs or requiring code reorganisation.
 
-A v2 pipeline is planned. It will introduce automated data cleaning and validation, DAG-based query decomposition, speculative parallel execution across multiple methodological strategies, and an editorial review gatekeeper for publication-grade outputs. See [docs/improvements.md](docs/improvements.md) for the full specification.
+A v2 pipeline is planned. It will introduce automated data cleaning and validation, DAG-based query decomposition, speculative parallel execution across multiple methodological strategies, and an editorial review gatekeeper for publication-grade outputs. See [docs/proposals/improvements.md](docs/proposals/improvements.md) for the full specification.
 
 ---
 
