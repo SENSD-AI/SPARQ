@@ -13,8 +13,8 @@ from unittest.mock import Mock, patch
 from botocore.exceptions import ClientError
 from rich.console import Console
 
-from sparq.utils.bedrock import audit, paths
-from tests.utils.bedrock.test_profiles import catalog_client
+from tests.utils.bedrock_utils.test_profiles import catalog_client
+from utils.bedrock_utils import audit, paths
 
 
 class TestPaths(unittest.TestCase):
@@ -59,11 +59,15 @@ class TestPaths(unittest.TestCase):
         )
         self.assertEqual(paths.context_parts("..", "us-east-1")[0], "%2E%2E")
 
-    def test_audit_outputs_use_the_project_artifacts_directory(self):
-        with patch.object(paths, "get_project_root", return_value=Path("/tmp/project")):
+    def test_audit_outputs_live_beside_the_utility(self):
+        with patch.object(
+            paths, "__file__", "/tmp/project/utils/bedrock_utils/paths.py"
+        ):
             self.assertEqual(
                 paths.audit_context_dir("sensd", "us-east-1"),
-                Path("/tmp/project/artifacts/bedrock/sensd/us-east-1"),
+                Path(
+                    "/tmp/project/utils/bedrock_utils/outputs/sensd/us-east-1"
+                ).resolve(),
             )
 
     def run_discovery(self, client, arguments):
@@ -117,7 +121,7 @@ class TestPaths(unittest.TestCase):
     def test_default_audit_has_a_stable_latest_pointer(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            context = root / "artifacts/bedrock/test/us-east-1"
+            context = root / "utils/bedrock_utils/outputs/test/us-east-1"
             with patch.object(audit, "audit_context_dir", return_value=context):
                 self.assertEqual(
                     self.run_discovery(
@@ -140,9 +144,23 @@ class TestPaths(unittest.TestCase):
             )
             self.assertEqual(list(Path(directory).iterdir()), [path])
 
+    def test_script_entry_point_works_outside_the_checkout(self):
+        script = Path(__file__).resolve().parents[3] / "scripts/aws/check_models.py"
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                [sys.executable, str(script), "--help"],
+                cwd=directory,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("--cache-dir", result.stdout)
+
     def test_module_and_legacy_script_entry_points_have_help(self):
         for command in (
-            [sys.executable, "-m", "sparq.utils.bedrock"],
+            [sys.executable, "-m", "utils.bedrock_utils"],
             [sys.executable, "scripts/aws/check_models.py"],
         ):
             result = subprocess.run(

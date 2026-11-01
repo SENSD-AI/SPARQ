@@ -65,7 +65,7 @@ manuscripts/thesis/thesis_angle.md
 evaluation/results/
 
 # Generated utility audit evidence.
-artifacts/bedrock/
+utils/bedrock_utils/outputs/
 
 # Preserve the local-only status of moved manuscript revision material.
 manuscripts/jamia/drafts/

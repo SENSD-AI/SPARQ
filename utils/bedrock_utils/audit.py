@@ -31,7 +31,7 @@ from rich.progress import (
 from rich.table import Table
 from rich.text import Text
 
-from sparq.utils.bedrock.paths import (
+from utils.bedrock_utils.paths import (
     audit_context_dir,
     make_output_id,
     model_directory_name,
@@ -546,7 +546,7 @@ def run_probe(job: ProbeJob, timeout: int, cancel: Event | None = None) -> RunRe
     if cancel is not None and cancel.is_set():
         return RunResult(reason="Interrupted before this model started.")
     job.artifact_dir.mkdir(parents=True, exist_ok=True)
-    job_path = job.artifact_dir / "job.json"
+    job_path = (job.artifact_dir / "job.json").resolve()
     atomic_json(job_path, job)
     started = time.monotonic()
     environment = {
@@ -554,10 +554,20 @@ def run_probe(job: ProbeJob, timeout: int, cancel: Event | None = None) -> RunRe
         "AWS_PROFILE": job.profile,
         "AWS_REGION": job.region,
         "PYTHONUNBUFFERED": "1",
+        # Workers need the repository utility package even outside the checkout cwd.
+        "PYTHONPATH": os.pathsep.join(
+            filter(
+                None,
+                [
+                    str(Path(__file__).resolve().parents[2]),
+                    os.environ.get("PYTHONPATH"),
+                ],
+            )
+        ),
     }
     with (job.artifact_dir / "worker.log").open("w", encoding="utf-8") as log:
         process = subprocess.Popen(
-            [sys.executable, "-m", "sparq.utils.bedrock.probe", str(job_path)],
+            [sys.executable, "-m", "utils.bedrock_utils.probe", str(job_path)],
             stdout=log,
             stderr=subprocess.STDOUT,
             env=environment,

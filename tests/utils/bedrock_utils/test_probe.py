@@ -7,9 +7,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
-from sparq.utils.bedrock import probe
-from sparq.utils.bedrock.audit import ProbeJob, RunResult
-from sparq.utils.bedrock.coverage import REQUIRED_TOOLS, ToolEvidence
+from utils.bedrock_utils import probe
+from utils.bedrock_utils.audit import ProbeJob, RunResult
+from utils.bedrock_utils.coverage import REQUIRED_TOOLS, ToolEvidence
 
 
 def coverage_calls() -> list[ToolEvidence]:

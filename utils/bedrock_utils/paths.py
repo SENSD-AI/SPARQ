@@ -9,8 +9,6 @@ from urllib.parse import quote
 
 from platformdirs import user_cache_path
 
-from sparq.utils.get_package_dir import get_project_root
-
 
 def context_parts(profile: str, region: str) -> tuple[str, str]:
     """Keep distinct AWS contexts in single path components, including unusual names."""
@@ -22,8 +20,11 @@ def context_parts(profile: str, region: str) -> tuple[str, str]:
 
 
 def audit_context_dir(profile: str, region: str) -> Path:
-    root = get_project_root() or Path.cwd()
-    return root / "artifacts" / "bedrock" / Path(*context_parts(profile, region))
+    return (
+        Path(__file__).resolve().parent
+        / "outputs"
+        / Path(*context_parts(profile, region))
+    )
 
 
 def profile_cache_path(

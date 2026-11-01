@@ -11,13 +11,13 @@ from pathlib import Path
 from langchain_core.tracers.context import collect_runs
 from markdown_it import MarkdownIt
 
-from sparq.utils.bedrock.audit import (
+from utils.bedrock_utils.audit import (
     ProbeJob,
     RunResult,
     atomic_json,
     failure_result,
 )
-from sparq.utils.bedrock.coverage import (
+from utils.bedrock_utils.coverage import (
     collect_tool_evidence,
     verify_tool_coverage,
 )
@@ -150,7 +150,7 @@ async def execute_job(job: ProbeJob) -> RunResult:
 async def checked_job(job: ProbeJob) -> RunResult:
     try:
         if job.mode == "capabilities":
-            from sparq.utils.bedrock.capabilities import (
+            from utils.bedrock_utils.capabilities import (
                 execute_job as execute_capabilities,
             )
 

@@ -14,14 +14,14 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import BaseTool, tool
 
 from sparq.schemas.planning import Plan, Router, StepResult
-from sparq.utils.bedrock.audit import (
+from sparq.utils.get_llm import get_llm
+from utils.bedrock_utils.audit import (
     CheckResult,
     ProbeJob,
     RunResult,
     atomic_json,
     failure_result,
 )
-from sparq.utils.get_llm import get_llm
 
 CHECKS = (
     "structured_router",

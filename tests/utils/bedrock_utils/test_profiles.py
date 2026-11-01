@@ -9,8 +9,8 @@ from unittest.mock import Mock, patch
 
 from rich.console import Console
 
-from sparq.utils.bedrock import audit
-from tests.utils.bedrock.test_audit import foundation
+from tests.utils.bedrock_utils.test_audit import foundation
+from utils.bedrock_utils import audit
 
 BASE = "anthropic.example-v1:0"
 NAME = "Example Model"

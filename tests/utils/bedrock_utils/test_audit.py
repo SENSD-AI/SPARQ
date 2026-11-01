@@ -3,6 +3,7 @@
 import csv
 import io
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -13,7 +14,7 @@ from unittest.mock import Mock, patch
 from botocore.exceptions import ClientError
 from rich.console import Console
 
-from sparq.utils.bedrock import audit
+from utils.bedrock_utils import audit
 
 
 def foundation(identifier: str, output: str = "TEXT") -> dict:
@@ -264,8 +265,16 @@ class TestSweep(unittest.TestCase):
                 query="test",
                 artifact_dir=Path(directory),
             )
-            with patch.object(audit.subprocess, "Popen", return_value=process):
+            with patch.object(
+                audit.subprocess, "Popen", return_value=process
+            ) as launch:
                 result = audit.run_probe(job, 10)
+            arguments, keywords = launch.call_args
+            self.assertEqual(arguments[0][1:3], ["-m", "utils.bedrock_utils.probe"])
+            self.assertEqual(
+                keywords["env"]["PYTHONPATH"].split(os.pathsep)[0],
+                str(Path(audit.__file__).resolve().parents[2]),
+            )
             self.assertEqual(result.error_code, "WorkerFailure")
             self.assertEqual(result.status, "failed")
 

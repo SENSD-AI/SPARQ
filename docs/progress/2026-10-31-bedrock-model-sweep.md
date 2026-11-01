@@ -6,7 +6,7 @@ success/failure, so there are no separate vision, tool-capability, or CSV-conten
 probes.
 
 Entry point: `scripts/aws/check_models.py`. See the
-[usage guide](../guides/aws/check_models.md) for commands and result formats.
+[usage guide](../guides/utils/bedrock_utils/README.md) for commands and result formats.
 
 ## Behavior
 
@@ -171,3 +171,20 @@ prefix plus a short hash suffix to avoid merging distinct targets. Historical
 hashed folders and their report paths are unchanged. The original invocation ID
 continues to be saved in job.json. All 63 utility tests pass, including distinct
 unsafe-ID names and relocated bundle links; scoped type/lint/format checks pass.
+
+
+## Repository-level utility and local outputs (2026-11-01)
+
+User selected `utils/bedrock_utils/` for the auditor and its `outputs/` subdirectory
+for generated evidence. This supersedes the library and artifact locations above.
+The module command is now `uv run python -m utils.bedrock_utils`; the script wrapper
+remains supported, including from another cwd. Workers receive the checkout root
+on PYTHONPATH, preserving the caller cwd. Tests moved to `tests/utils/bedrock_utils/`.
+The OS-native inference-profile cache is unchanged. Previous seven audit bundles
+and their latest pointer were deleted at the user's explicit request before this
+move; no new live inference was launched.
+
+All 64 focused tests pass, including entry-point execution outside the checkout,
+worker invocation paths, and the new default output location. Scoped BasedPyright,
+Ruff lint and formatting pass. External project-log filing remains pending; this
+repository record preserves the accepted decision and verification.

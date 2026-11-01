@@ -55,7 +55,7 @@ typeCheckingMode = "standard"
 pythonVersion = "3.13"
 pythonPlatform = "All"
 
-include = ["src", "tests"]
+include = ["src", "tests", "utils"]
 exclude = [
     "**/__pycache__",
     ".venv",

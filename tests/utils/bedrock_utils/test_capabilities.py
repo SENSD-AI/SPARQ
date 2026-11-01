@@ -14,8 +14,8 @@ from langchain_core.runnables import RunnableLambda
 from langchain_core.utils.function_calling import convert_to_openai_tool
 
 from sparq.schemas.planning import Plan, Router, Step
-from sparq.utils.bedrock import capabilities as probes
-from sparq.utils.bedrock.audit import ProbeJob
+from utils.bedrock_utils import capabilities as probes
+from utils.bedrock_utils.audit import ProbeJob
 
 
 class LocalModel(BaseChatModel):

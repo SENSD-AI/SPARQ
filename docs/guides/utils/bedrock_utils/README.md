@@ -1,18 +1,22 @@
-# Check Bedrock models for SPARQ
+# Bedrock model auditing
+
+For AWS credentials and provider configuration, see [Bedrock setup](../../aws/README.md).
 
 The default mode uses small capability probes rather than a complete SPARQ run:
 
 ```bash
-uv run python -m sparq.utils.bedrock
+uv run python -m utils.bedrock_utils
 ```
 
 This performs paid inference. It uses SPARQ's configured `AWS_PROFILE` and
 `AWS_REGION`, falling back to the AWS default profile and its configured region.
 It does not edit project configuration. Four models run in parallel by default.
-The existing `scripts/aws/check_models.py` remains a thin wrapper around this utility.
+Run the module command from the repository root. The existing
+`scripts/aws/check_models.py` remains a wrapper and can also be invoked by absolute
+path from another working directory. This utility is not installed with the SPARQ library.
 
 ```bash
-uv run python -m sparq.utils.bedrock --workers 4 \
+uv run python -m utils.bedrock_utils --workers 4 \
   --model-id us.anthropic.claude-sonnet-4-5-20250929-v1:0
 ```
 
@@ -105,7 +109,7 @@ not that every SPARQ workload is reliable. Transient failures still warrant revi
 ## Optional: full SPARQ integration
 
 ```bash
-uv run python -m sparq.utils.bedrock --mode pipeline --timeout 1200
+uv run python -m utils.bedrock_utils --mode pipeline --timeout 1200
 ```
 
 This retains the expanded data-readiness query: two independent cached CSV/Excel
@@ -130,23 +134,23 @@ On macOS the default locations are:
 
 ```text
 ~/Library/Caches/sparq/bedrock/<profile>/<region>/inference_profiles.json
-artifacts/bedrock/<profile>/<region>/
+utils/bedrock_utils/outputs/<profile>/<region>/
   latest_audit.json                  # relative path to the newest bundle
   audits/<UTC timestamp>_<random suffix>/
 ```
 
 `platformdirs` selects the appropriate user-cache directory on each OS. `--cache-dir`
 overrides the Bedrock cache root; profile/region are appended. Audit paths resolve
-against the repository checkout (cwd when installed without a checkout). `--output`
+beside the utility code, independent of the current working directory. `--output`
 still selects an exact bundle directory. A custom output does not update the
 project's latest-audit pointer, but it still refreshes the scoped cache. Each bundle
 records the cache location and any cache warning. Cache refreshes and report writes
 use unique temporary files and atomic replacement.
 
 New Bedrock audits are utility artifacts, separate from scientific evaluation
-results. Existing bundles under `evaluation/results/bedrock_models/` remain intact.
-The implementation and tests live in `src/sparq/utils/bedrock/` and
-`tests/utils/bedrock/`.
+results. Previous audit bundles were deleted at the user’s request before this move.
+The implementation and tests live in `utils/bedrock_utils/` and
+`tests/utils/bedrock_utils/`.
 
 - `inference_profiles.json`: the full name/model-ID to profile-ID mapping for the
   selected AWS profile and region.
@@ -163,11 +167,16 @@ The implementation and tests live in `src/sparq/utils/bedrock/` and
 - Pipeline mode: `runs/<model-or-profile-id>/run/` holds SPARQ artifacts and
   `tool_calls.json` when the workflow returns or raises.
 
+Artifact-directory paths in `report.json` and `results.csv` are relative to the
+audit bundle root. Copy the entire bundle to preserve these links. `job.json`
+may retain absolute execution paths; it is historical provenance, not a portable
+replay command.
+
 Worker directories use the exact invocation ID when it is already path-safe, for
 example `runs/us.openai.gpt-6.1-sol/`. Characters such as colons and slashes are
 replaced, and a short hash suffix disambiguates sanitized, case-normalized or
 truncated IDs. The full original ID remains in `job.json`. Existing hashed audit
-folders and their recorded paths are preserved.
+folders are not renamed automatically.
 
 Only the coordinator writes shared reports; each worker has its own process and
 folder. Finished capability checks are checkpointed before the next starts. A

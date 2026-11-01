@@ -10,11 +10,11 @@ from langchain_core.tools import tool
 from langchain_core.tracers.context import collect_runs
 
 from sparq.tools.python_repl.schemas import OutputSchema
-from sparq.utils.bedrock.coverage import (
+from tests.utils.bedrock_utils.test_probe import coverage_calls
+from utils.bedrock_utils.coverage import (
     collect_tool_evidence,
     verify_tool_coverage,
 )
-from tests.utils.bedrock.test_probe import coverage_calls
 
 
 class TestCoverage(unittest.TestCase):
