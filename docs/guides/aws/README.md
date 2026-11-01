@@ -63,11 +63,11 @@ provider = "aws_bedrock"
 
 ## Check which models can run SPARQ
 
-The [regional model sweep](check_models.md) runs a basic SPARQ query against each
-foundation-model/profile target and saves the working IDs and failure reasons:
+The [regional model sweep](check_models.md) checks tool use and structured output for each
+foundation-model/profile target and saves capability results and routing mappings:
 
 ```bash
-uv run python scripts/aws/check_models.py
+uv run python -m sparq.utils.bedrock
 ```
 
 Use `--list-only` to inspect the regional catalog before making paid inference calls.

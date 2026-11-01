@@ -3,7 +3,7 @@
 SPARQ is a multi-agent LangGraph pipeline for Salmonella epidemiological research. It routes a natural-language query through a planner, executor, and aggregator to produce a structured analytical report.
 
 The Python package lives in `src/sparq/`. Repository assets are separated into
-[benchmarks](benchmarks/README.md), [documentation](docs/README.md),
+[evaluation](evaluation/README.md), [documentation](docs/README.md),
 [manuscripts](manuscripts/README.md), and a development [sandbox](sandbox/README.md).
 See the [project structure](docs/proposals/project_structure.md) for the layout.
 
@@ -125,13 +125,13 @@ uv run python -m sparq.evaluation.batch -n 10 -k 1 --evaluation-id baseline-v1
 
 Repeat this command later with the same `--evaluation-id` to group the batches
 into one evaluation. Each invocation gets a unique `batch_id` and saves its
-manifest and run artifacts under `benchmarks/results/batch_eval/<batch_id>/`.
+manifest and run artifacts under `evaluation/results/batch_eval/<batch_id>/`.
 The shared `evaluation_id` is stored in `batch.json` and each result's
 `evaluation_context`. Iteration numbers are local to each batch; this command
 evaluates the same first 10 eligible questions once each on every invocation.
 Omitting `--evaluation-id` leaves the batch ungrouped.
 
-Batch evaluation requires a repository checkout containing `benchmarks/datasets/`;
+Batch evaluation requires a repository checkout containing `evaluation/datasets/`;
 these assets are not included in the installed Python package.
 
 ---

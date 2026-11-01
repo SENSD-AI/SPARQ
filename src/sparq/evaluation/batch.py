@@ -1,8 +1,8 @@
 """Run repeatable, bounded batch evaluations over the question dataset.
 
-The script selects eligible questions from ``benchmarks/datasets/questions.json``, executes
+The script selects eligible questions from ``evaluation/datasets/questions.json``, executes
 each question for the requested number of iterations, and writes a manifest
-and per-run artifacts under ``benchmarks/results/batch_eval``. Individual run
+and per-run artifacts under ``evaluation/results/batch_eval``. Individual run
 failures are recorded in the manifest so the remaining runs can continue;
 unexpected orchestration failures cancel outstanding work before the batch is
 finalized.
@@ -22,6 +22,7 @@ from typing import TypedDict, cast
 
 from sparq.architectures.v1.settings import V1Settings
 from sparq.architectures.v1.system import Agentic_system
+from sparq.evaluation.paths import make_output_id, results_root
 from sparq.schemas.evaluation import BatchEvalOutput, BatchRunEntry
 from sparq.schemas.runs import EvaluationContext
 from sparq.settings import ENVSettings
@@ -33,8 +34,8 @@ _project_root = get_project_root()
 if _project_root is None:
     raise RuntimeError("Could not locate project root")
 PROJECT_ROOT: Path = _project_root
-FILE_PATH = PROJECT_ROOT / "benchmarks" / "datasets" / "questions.json"
-RESULTS_ROOT = PROJECT_ROOT / "benchmarks" / "results" / "batch_eval"
+FILE_PATH = PROJECT_ROOT / "evaluation" / "datasets" / "questions.json"
+RESULTS_ROOT = results_root() / "batch_eval"
 
 
 def positive_int(value: str) -> int:
@@ -69,10 +70,15 @@ def parse_args() -> argparse.Namespace:
         The parsed command-line namespace.
     """
     parser = argparse.ArgumentParser(
-        description="Run batch evaluation on SPARQ over test questions in benchmarks/datasets/questions.json",
+        description="Run batch evaluation on SPARQ over test questions in evaluation/datasets/questions.json",
     )
     parser.add_argument("-n", "--n_questions", type=positive_int, default=1)
     parser.add_argument("-k", "--iterations", type=positive_int, default=1)
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="Exact directory for this batch; must not already exist",
+    )
     parser.add_argument(
         "--evaluation-id",
         help="Shared identifier grouping batches from separate invocations into one evaluation",
@@ -125,19 +131,6 @@ def load_questions(file_path: Path, limit: int) -> list[Question]:
 def local_now() -> datetime:
     """Return the current local time as a timezone-aware datetime."""
     return datetime.now().astimezone()
-
-
-def make_batch_id(started_at: datetime) -> str:
-    """Create a readable, unique identifier for a batch.
-
-    Args:
-        started_at: Batch start time used as the human-readable prefix.
-
-    Returns:
-        A timestamped identifier with a random suffix.
-    """
-    timestamp = started_at.strftime("%Y-%m-%dT%H-%M-%S-%Z")
-    return f"{timestamp}_{uuid.uuid4().hex[:8]}"
 
 
 def hash_file(file_path: Path) -> str:
@@ -393,6 +386,7 @@ def create_batch(
     iterations: int,
     configuration: dict,
     evaluation_id: str | None = None,
+    output_dir: Path | None = None,
 ) -> tuple[BatchEvalOutput, Path]:
     """Build a batch manifest and its planned run entries.
 
@@ -403,13 +397,18 @@ def create_batch(
         iterations: Number of evaluations to plan per question.
         configuration: Model configuration snapshot stored in the manifest.
         evaluation_id: Shared identifier for batches belonging to one evaluation.
+        output_dir: Exact batch directory, overriding the generated default.
 
     Returns:
         The initialized batch manifest and its output directory path.
     """
     started_at = local_now()
-    batch_id = make_batch_id(started_at)
-    batch_dir = RESULTS_ROOT / batch_id
+    batch_id = make_output_id(started_at)
+    batch_dir = (
+        output_dir.expanduser().resolve()
+        if output_dir is not None
+        else RESULTS_ROOT / batch_id
+    )
     runs: list[BatchRunEntry] = []
 
     for iteration in range(1, iterations + 1):
@@ -469,6 +468,7 @@ async def main() -> int:
         iterations=args.iterations,
         configuration={"models": settings.llm_config.model_dump(mode="json")},
         evaluation_id=args.evaluation_id,
+        output_dir=args.output,
     )
     await execute_batch(batch, batch_dir, questions, settings)
     print(

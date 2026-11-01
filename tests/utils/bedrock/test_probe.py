@@ -7,8 +7,30 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
-from sparq.evaluation import bedrock_probe as probe
-from sparq.evaluation.bedrock_audit import ProbeJob, RunResult
+from sparq.utils.bedrock import probe
+from sparq.utils.bedrock.audit import ProbeJob, RunResult
+from sparq.utils.bedrock.coverage import REQUIRED_TOOLS, ToolEvidence
+
+
+def coverage_calls() -> list[ToolEvidence]:
+    calls = [ToolEvidence(name=name, output="ok") for name in sorted(REQUIRED_TOOLS)]
+    for call in calls:
+        if call.name == "load_dataset":
+            call.inputs = {"file_path": "/data/input.csv"}
+        elif call.name == "python_repl_tool":
+            call.inputs = {"persist_namespace": True}
+        elif call.name == "analyze_image":
+            call.output = json.dumps(
+                {"summary": "Visible plot", "answer": "Labels match"}
+            )
+    calls.append(
+        ToolEvidence(
+            name="load_dataset",
+            inputs={"file_path": "/data/input.xlsx", "sheet_name": "Sheet1"},
+            output="Loaded dataset",
+        )
+    )
+    return calls
 
 
 def write_run(root: Path, trace: dict) -> None:
@@ -19,17 +41,50 @@ def write_run(root: Path, trace: dict) -> None:
         "final_answer.json",
         "report/report.md",
         "report/report.pdf",
+        "report/ref.bib",
     ]:
         path = root / name
         path.parent.mkdir(exist_ok=True)
         path.write_text("synthetic artifact")
+    (root / "report/report.md").write_text(
+        "![Coverage chart](../executor/figures/plot.png)"
+    )
+    (root / "tool_calls.json").write_text(
+        json.dumps([call.model_dump() for call in coverage_calls()])
+    )
+    executor = root / "executor"
+    for category in ("figures", "tables", "docs"):
+        (executor / category).mkdir(parents=True, exist_ok=True)
+    (executor / "tables/feature_summary.csv").write_text(
+        "dataset,rows,numeric_column,non_null_count,mean\n"
+        "csv,10,value,9,2.5\nexcel,20,count,18,3\n"
+    )
+    (executor / "figures/plot.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    (executor / "docs/methods.txt").write_text("source provenance")
+    (executor / "docs/methods_copy.txt").write_text("source provenance")
+    (executor / "docs/visual_check.txt").write_text("Labels match")
+    (executor / "index.json").write_text(
+        json.dumps(
+            {
+                "figures": {"f1": "figures/plot.png"},
+                "tables": {"t1": "tables/feature_summary.csv"},
+                "docs": {"d1": "docs/methods.txt"},
+            }
+        )
+    )
 
 
 def successful_trace() -> dict:
     return {
         "route": True,
-        "plan": {"steps": [{"id": 1}]},
-        "results": [{"id": 1, "success": True}],
+        "plan": {
+            "steps": [
+                {"id": 1, "dependencies": []},
+                {"id": 2, "dependencies": []},
+                {"id": 3, "dependencies": [1, 2]},
+            ]
+        },
+        "results": [{"id": i, "success": True} for i in (1, 2, 3)],
     }
 
 
@@ -70,11 +125,49 @@ class TestRunVerification(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "report.pdf"):
                 probe.verify_run(root)
 
+    def test_missing_feature_is_not_a_pass(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_run(root, successful_trace())
+            calls = [
+                c.model_dump() for c in coverage_calls() if c.name != "analyze_image"
+            ]
+            (root / "tool_calls.json").write_text(json.dumps(calls))
+            with self.assertRaisesRegex(ValueError, "analyze_image"):
+                probe.verify_run(root)
+
+    def test_single_step_cannot_claim_dependency_coverage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            trace = successful_trace()
+            trace["plan"]["steps"] = [{"id": 1}]
+            write_run(root, trace)
+            with self.assertRaisesRegex(ValueError, "dependency merging"):
+                probe.verify_run(root)
+
+    def test_unbounded_summary_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_run(root, successful_trace())
+            table = root / "executor/tables/feature_summary.csv"
+            table.write_text(table.read_text().replace("excel,20", "excel,201"))
+            with self.assertRaisesRegex(ValueError, "bounded two-dataset"):
+                probe.verify_run(root)
+
+    def test_unembedded_plot_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_run(root, successful_trace())
+            (root / "report/report.md").write_text("Report without the saved plot")
+            with self.assertRaisesRegex(ValueError, "embed an indexed PNG"):
+                probe.verify_run(root)
+
 
 class TestWorker(unittest.IsolatedAsyncioTestCase):
     async def test_model_exception_becomes_failed_result(self):
         job = ProbeJob(
             model_id="bad",
+            mode="pipeline",
             profile="test",
             region="us-east-1",
             query="test",
@@ -123,6 +216,9 @@ class TestWorker(unittest.IsolatedAsyncioTestCase):
                     "sparq.architectures.v1.settings.V1Settings", return_value=settings
                 ),
                 patch.object(system, "Agentic_system", SyntheticSystem),
+                patch.object(
+                    probe, "collect_tool_evidence", return_value=coverage_calls()
+                ),
             ):
                 result = await probe.execute_job(job)
         self.assertEqual(result.status, "passed")
@@ -141,6 +237,7 @@ class TestWorker(unittest.IsolatedAsyncioTestCase):
     async def test_successful_result_is_retained(self):
         job = ProbeJob(
             model_id="good",
+            mode="pipeline",
             profile="test",
             region="us-east-1",
             query="test",

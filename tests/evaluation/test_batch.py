@@ -45,7 +45,7 @@ class TestBatchSummary(unittest.TestCase):
         return BatchEvalOutput(
             batch_id="batch-1",
             time_started=datetime.now(timezone.utc),
-            dataset_path=Path("benchmarks/datasets/questions.json"),
+            dataset_path=Path("evaluation/datasets/questions.json"),
             dataset_hash="sha256:test",
             question_filter={},
             requested_question_count=len(runs),
@@ -97,7 +97,7 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
         self.batch = BatchEvalOutput(
             batch_id="batch-1",
             time_started=datetime.now(timezone.utc),
-            dataset_path=Path("benchmarks/datasets/questions.json"),
+            dataset_path=Path("evaluation/datasets/questions.json"),
             dataset_hash="sha256:test",
             question_filter={"weather_related": False},
             requested_question_count=1,
@@ -196,7 +196,7 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
         for status, expected in (("completed", 0), ("completed_with_errors", 1), ("failed", 1)):
             with self.subTest(status=status):
                 self.batch.status = cast(BatchStatus, status)
-                with patch("sparq.evaluation.batch.parse_args", return_value=SimpleNamespace(n_questions=1, iterations=1, evaluation_id=None)), patch(
+                with patch("sparq.evaluation.batch.parse_args", return_value=SimpleNamespace(n_questions=1, iterations=1, evaluation_id=None, output=None)), patch(
                     "sparq.evaluation.batch.load_questions", return_value=[self.question],
                 ), patch("sparq.evaluation.batch.ENVSettings"), patch(
                     "sparq.evaluation.batch.V1Settings", return_value=self.settings,
@@ -313,12 +313,33 @@ class TestRunLifecycle(unittest.IsolatedAsyncioTestCase):
 
 
 class TestInputAndPersistence(unittest.TestCase):
+    def test_explicit_output_is_exact_and_manifest_links_survive_moving_bundle(self):
+        questions = load_questions(FILE_PATH, limit=1)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "chosen-batch"
+            with patch("sys.argv", ["batch_eval", "--output", str(output)]):
+                args = parse_args()
+            batch, batch_dir = create_batch(questions, 1, 1, {}, output_dir=args.output)
+            self.assertEqual(batch_dir, output.resolve())
+            batch_dir.mkdir()
+            result_path = batch_dir / batch.runs[0].result_path
+            result_path.parent.mkdir(parents=True)
+            result_path.write_text('{"response": "synthetic"}')
+            persist_manifest(batch, batch_dir / "batch.json")
+
+            moved = batch_dir.rename(Path(directory) / "archived-batch")
+            saved = BatchEvalOutput.model_validate_json((moved / "batch.json").read_text())
+            self.assertEqual(
+                json.loads((moved / saved.runs[0].result_path).read_text()),
+                {"response": "synthetic"},
+            )
+
     def test_repository_dataset_links_to_the_new_batch_location(self):
         questions = load_questions(FILE_PATH, limit=1)
         batch, batch_dir = create_batch(questions, 1, 1, {})
 
-        self.assertEqual(batch.dataset_path, Path("benchmarks/datasets/questions.json"))
-        self.assertEqual(RESULTS_ROOT, PROJECT_ROOT / "benchmarks/results/batch_eval")
+        self.assertEqual(batch.dataset_path, Path("evaluation/datasets/questions.json"))
+        self.assertEqual(RESULTS_ROOT, PROJECT_ROOT / "evaluation/results/batch_eval")
         self.assertEqual(batch_dir.parent, RESULTS_ROOT)
         self.assertEqual(batch.selected_question_ids, [questions[0]["id"]])
         self.assertFalse(questions[0]["weather_related"])

@@ -28,9 +28,6 @@ selected_data/
 !src/sparq/data/
 !src/sparq/data/*
 
-# Result directories
-eval/results/**
-
 # Model files
 models/
 *.h5
@@ -59,13 +56,16 @@ docker-build.sh
 # Encrypted-only docs: plaintext stays local, only the .gpg ciphertext is committed
 manuscripts/thesis/thesis_angle.md
 
-# Benchmark question dataset and preserved evidence are versioned.
-!benchmarks/
-!benchmarks/datasets/
-!benchmarks/datasets/questions.json
-!benchmarks/references/
-!benchmarks/references/**
-benchmarks/results/
+# Evaluation question dataset and preserved evidence are versioned.
+!evaluation/
+!evaluation/datasets/
+!evaluation/datasets/questions.json
+!evaluation/references/
+!evaluation/references/**
+evaluation/results/
+
+# Generated utility audit evidence.
+artifacts/bedrock/
 
 # Preserve the local-only status of moved manuscript revision material.
 manuscripts/jamia/drafts/

@@ -1,5 +1,10 @@
 # Project structure
 
+Update, 2026-10-31: the evaluation assets below were subsequently consolidated
+from `benchmarks/` and `eval/` into `evaluation/`. See the
+[migration record](../../evaluation/MIGRATION.md) for the current paths. The
+original restructuring map below is retained as history.
+
 Status: implemented on `refactor/project-structure` following the 2026-10-30
 restructuring discussion. This record captures organization and migration
 exceptions; it does not adopt the other feature proposals in this directory.
