@@ -5,6 +5,7 @@ SPARQ is a multi-agent LangGraph pipeline for Salmonella epidemiological researc
 The Python package lives in `src/sparq/`. Repository assets are separated into
 [evaluation](evaluation/README.md), [documentation](docs/README.md),
 [manuscripts](manuscripts/README.md), and a development [sandbox](sandbox/README.md).
+Bedrock [auditing utilities](utils/bedrock_utils/README.md) live outside the library.
 See the [project structure](docs/proposals/project_structure.md) for the layout.
 
 > **Recommendation:** Use a UNIX-based OS (Linux, macOS) or WSL on Windows.
@@ -41,6 +42,12 @@ Once access is granted, download the data:
 uv run python -m sparq.utils.download_data
 ```
 
+Bundled manifests and dataset descriptions live in `src/sparq/data/`; setup copies
+`data_summaries_full.json` and `data_summaries_short.json` to the user data
+directory. Downloaded data and user configuration live in the platform-specific
+SPARQ configuration directory described below. Evaluation questions are separate,
+in `evaluation/datasets/questions.json`.
+
 ---
 
 ## Configuration
@@ -69,7 +76,7 @@ model = "gemini-2.5-flash"
 provider = "google_genai"
 ```
 
-Supported providers: `google_genai`, `openai`, `aws_bedrock`, `openrouter`. For AWS Bedrock setup see [docs/guides/aws/README.md](docs/guides/aws/README.md).
+Supported providers: `google_genai`, `openai`, `aws_bedrock`, `openrouter`. For AWS Bedrock setup see [docs/guides/sparq/bedrock.md](docs/guides/sparq/bedrock.md).
 
 You can also override the output directory and set a custom test query:
 
@@ -147,7 +154,7 @@ output/02-06-2026_11-28-17/
 │   ├── report.md      # report with contents and figure/table lists
 │   ├── report.pdf     # PDF with embedded figures
 │   └── ref.bib        # bibliography, when references are present
-├── trace.json         # full step-by-step trace
+├── trace.json         # latest graph-state snapshot
 └── final_answer.json  # synthesised answer
 ```
 
@@ -155,7 +162,7 @@ The saver generates the report bundle from the final assistant message. Empty
 figure/table lists are omitted. Figures stay in `executor/`; Markdown uses paths
 relative to `report/`, and the PDF embeds the images. Bibliography entries preserve
 the report's supplied references without inferring missing metadata. See
-[report generation](docs/guides/reports.md) for the supported Markdown conventions.
+[SPARQ run lifecycle](docs/guides/sparq/04-reports-and-results.md#report-generation) for the supported Markdown conventions.
 
 Where `~` resolves to:
 - **Linux / macOS:** `/home/<username>/tmp/sparq/output`

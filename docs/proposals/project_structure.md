@@ -1,3 +1,8 @@
+Update, 2026-11-01: Bedrock auditing now lives outside the library in
+`utils/bedrock_utils/`, with Git-ignored outputs in its `outputs/` directory.
+See [the audit guide](../guides/utils/bedrock_utils/README.md). The diagram below records
+the original restructuring plan.
+
 # Project structure
 
 Update, 2026-10-31: the evaluation assets below were subsequently consolidated
@@ -94,7 +99,7 @@ Ordinary runtime output remains outside the repository at its configured path.
 | Ignored `work/` files | `manuscripts/jamia/drafts/`, `scripts/` | Remain local and ignored; historical scripts retain their old paths |
 | `claude_context/`, architecture chapter, thesis note | `manuscripts/thesis/` | Tracked content preserved; plaintext note remains ignored |
 | Engineering documentation | Topic directories under `docs/` | Indexes and relative links updated; original status retained |
-| Utility downloader README | `docs/guides/data_setup.md` | Downloader command corrected |
+| Utility downloader README | Root `README.md` setup section | Downloader command corrected; duplicate data guide subsequently consolidated into setup |
 
 ## Contracts and commands
 

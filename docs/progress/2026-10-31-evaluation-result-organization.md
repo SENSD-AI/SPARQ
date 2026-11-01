@@ -11,7 +11,7 @@ Implemented:
   `evaluation/results/batch_eval/` and `evaluation/results/bedrock_models/`.
 - Newly saved Bedrock JSON/CSV artifact links are relative to their sweep root,
   including interrupted runs. Batch result links were already relative.
-- A [layout and usage guide](../guides/evaluation-results.md), linked from the
+- A [layout and usage guide](../guides/sparq/05-evaluation-and-concurrency.md#batch-evaluation), linked from the
   evaluation README and documentation index.
 
 Following the user's explicit consolidation request, `benchmarks/` and legacy

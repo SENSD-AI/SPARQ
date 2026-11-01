@@ -3,9 +3,10 @@
 - `datasets/questions.json`: versioned evaluation questions.
 - [References](references/README.md): preserved run bundles and their review status.
 - `results/batch_eval/`: generated batches, ignored by Git.
-- `results/bedrock_models/`: generated regional model sweeps, ignored by Git.
 
-See [evaluation result organization](../docs/guides/evaluation-results.md) for
+Bedrock model audits live separately in `utils/bedrock_utils/outputs/`.
+
+See [batch evaluation](../docs/guides/sparq/05-evaluation-and-concurrency.md#batch-evaluation) for
 bundle layouts, explicit output directories, and moving or preserving results.
 
 Run from a repository checkout after `uv sync`:

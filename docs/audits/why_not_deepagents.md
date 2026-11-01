@@ -42,7 +42,7 @@ auditable, typed, and machine-consumable downstream. You'd be trading a schema f
 
 ## 2. The REPL is sparq's domain-specific core — deepagents doesn't replace it
 
-The most sophisticated part of sparq is [`tools/python_repl/`](../architecture/repl_architecture.md): subprocess
+The most sophisticated part of sparq is [`tools/python_repl/`](../guides/sparq/03-execution.md): subprocess
 isolation via `multiprocessing.spawn`, namespace persistence across steps via pickling, AST-based
 last-expression capture, whitelisted package auto-install. This is purpose-built for
 epidemiological data analysis workflows — load a dataset, transform it, keep variables alive

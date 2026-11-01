@@ -120,7 +120,7 @@ This mirrors how scientific papers reference figures and ensures the output is s
 helpers derive navigation, caption lists, metadata, and bibliography output.
 PDF rendering uses ReportLab and packaged fonts; pandoc is not required.
 
-See [report generation](../guides/reports.md), the
+See [report generation](../guides/sparq/04-reports-and-results.md#report-generation), the
 [adopted decision](../adr/0001-deterministic-report-bundles.md), and
 `src/sparq/architectures/v1/reporting/`.
 

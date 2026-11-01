@@ -1,6 +1,6 @@
 # Bedrock model auditing
 
-For AWS credentials and provider configuration, see [Bedrock setup](../../aws/README.md).
+For AWS credentials and provider configuration, see [Bedrock setup](../../sparq/bedrock.md).
 
 The default mode uses small capability probes rather than a complete SPARQ run:
 
