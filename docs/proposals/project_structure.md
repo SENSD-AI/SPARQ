@@ -22,7 +22,7 @@ SPARQ/
 │   │   └── v2/                             # existing placeholder
 │   ├── schemas/                            # state, planning, runs,
 │   │                                       # evaluation, data context
-│   ├── evaluation/                         # maintained batch runner
+│   ├── evaluation/                         # batch runner and Bedrock run sweep
 │   ├── tools/                              # artifact/discovery/filesystem
 │   │   ├── image_processing/               # vision tool and prompt
 │   │   └── python_repl/                     # executor, namespace, packages
@@ -40,7 +40,7 @@ SPARQ/
 │   ├── utils/                              # helpers and model factory
 │   └── tools/                              # tool tests, including python_repl/
 ├── scripts/                                # run, Docker, test, smoke launchers
-│   └── aws/                                # model listing utility
+│   └── aws/                                # model listing and SPARQ run sweep
 ├── docs/
 │   ├── README.md
 │   ├── guides/                             # data, reports, AWS setup

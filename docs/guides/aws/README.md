@@ -60,3 +60,14 @@ For cross-region inference profiles (recommended for higher availability), use m
 model = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 provider = "aws_bedrock"
 ```
+
+## Check which models can run SPARQ
+
+The [regional model sweep](check_models.md) runs a basic SPARQ query against each
+foundation-model/profile target and saves the working IDs and failure reasons:
+
+```bash
+uv run python scripts/aws/check_models.py
+```
+
+Use `--list-only` to inspect the regional catalog before making paid inference calls.
