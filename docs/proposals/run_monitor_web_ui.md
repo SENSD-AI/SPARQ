@@ -3,8 +3,8 @@
 Distinct from [web_ui_migration.md](web_ui_migration.md), which turns SPARQ into a conversational
 chat app via LangGraph Studio / Agent Chat UI. This doc is for a run **observability** dashboard: a
 side panel listing run IDs, a main panel showing the input query and the live streaming node updates
-for the selected run. Runs are still launched the existing way (CLI, `experiments/00.py` batch
-script) — the web app only observes them.
+for the selected run. Runs are still launched through the CLI or
+`uv run python -m sparq.evaluation.batch` — the web app only observes them.
 
 ## Context
 
@@ -45,10 +45,10 @@ added at the source before there's anything to watch.
 - `GET /api/runs/{run_id}/stream` — SSE endpoint that tails `stream.jsonl` from EOF and pushes new
   lines live; closes once `run_meta.json` shows `finished_at`.
 
-**Open item:** default watch root is `output/` (matches single-run `Settings.paths.output_dir`),
-but `experiments/00.py` writes to a separate `00_results/` at cwd — outside that root. Plan is to
-make watch roots a configurable list (default `[output/]`, extra roots via flag/env) rather than
-touching `00.py`, unless it's preferable to just point `00.py` at `output/` too.
+**Open item:** CLI runs use `V1Settings.paths.output_dir`; the batch runner defaults to
+`evaluation/results/batch_eval/<batch_id>/`, with an exact-directory `--output` override.
+Make watch roots a configurable list covering both configured CLI output and batch results,
+with extra roots via flag/env. Do not assume a single literal `output/` directory.
 
 ## Checkpoint C — React frontend (Vite, `web/`)
 
@@ -61,6 +61,7 @@ touching `00.py`, unless it's preferable to just point `00.py` at `output/` too.
 
 ## Checkpoint D — end-to-end verification
 
-- Start a CLI run and a 2-3 question `experiments/00.py` batch concurrently, confirm the sidebar
+- Start a CLI run and a batch using `uv run python -m sparq.evaluation.batch -n 3 -k 1`
+  concurrently, confirm the sidebar
   shows all of them independently updating live, and that closing/reopening the browser still shows
   finished runs from disk.

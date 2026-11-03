@@ -12,7 +12,7 @@ an actual Postgres instance (~2-3 days); REPL namespace continuity across turns 
 turn-scoped step keys, seed/merge-back at turn boundaries — is the riskiest and least mechanical
 chunk (~2-3 days); the router heuristic rewrite plus wiring prior-turn context into
 `router`/`planner`/`aggregator` prompts (~1-2 days); trace/saver restructuring and end-to-end
-testing against `Q_dataset.json`'s follow-ups is the remainder (~1-2 days). This revises an earlier
+testing against `evaluation/datasets/questions.json`'s follow-ups is the remainder (~1-2 days). This revises an earlier
 5-8 day estimate upward twice: the first revision (to 7-10 days) hadn't accounted for REPL namespace
 continuity or the router heuristic problem below; the second (to 8-11 days) accounts for switching
 the checkpointer backend from `AsyncSqliteSaver` to `AsyncPostgresSaver` (see "Cross-turn
@@ -142,9 +142,10 @@ runs. That's the reason the top-line estimate moved up by about a day.
 conversation — distinct from today's `run_id`, which is regenerated fresh inside `run()` on every
 call (`system.py:77`). Rather than keep both identifiers, `thread_id` takes over `run_id`'s existing
 job (scoping `config["configurable"]`) *and* becomes the REPL namespace key (see below) — a single
-identifier per conversation. `experiments/00.py` would use one `thread_id` per top-level question in
-`Q_dataset.json` so its `follow_ups` continue that thread, and a new `thread_id` per top-level
-question so unrelated questions don't share history.
+identifier per conversation. The batch runner (`src/sparq/evaluation/batch.py`) would need
+one `thread_id` per top-level question in `evaluation/datasets/questions.json`, so its
+`follow_ups` continue that thread and unrelated questions do not share history. The current
+runner executes top-level questions independently; follow-up iteration remains proposed work.
 
 ---
 
@@ -223,11 +224,11 @@ option, not planned now.
 
 ## Trace/saver semantics across turns
 
-`PathSettings.set_run_dir`'s `model_validator` computes `run_dir` once, at `Settings`/
-`Agentic_system` construction time. Every `run()` call on the same instance today writes to the same
-`trace.json`/`final_answer.json`, silently overwriting the previous call's output — independently
-flagged in `todo.md` for the `experiments/00.py` batch-question loop (same root cause: looping
-`run()` calls on one instance collides on `run_dir`).
+Repeated calls sharing one `run_dir` need turn-scoped output to avoid overwriting
+`trace.json`/`final_answer.json`. The current batch runner already creates a separate
+`Agentic_system` and run directory for each independent evaluation run; the old batch-loop
+collision is not a current batch-runner defect. Conversation-aware follow-up evaluation
+would still need to preserve each turn's output within its shared thread.
 
 Fix: scope trace output per `thread_id` and per turn — e.g. `run_dir / thread_id / turn_{n}_trace.json`
 — so nothing is overwritten and a full session is reconstructable from its directory. `final_answer.json`
@@ -290,14 +291,14 @@ between items that isn't visible until they're wired together).
   fields wholesale each call, no reducer involved) and confirm it's acceptable that a `False`-routed
   turn leaves the *previous* `True` turn's `plan`/`completed_plan_steps`/`results` sitting untouched
   in the checkpoint (harmless: the `False` branch goes straight to `saver`, which doesn't read them).
-- [ ] `experiments/00.py` / `todo.md`'s `Q_dataset` items (~0.5 day): use one `thread_id` per
-  top-level question in `evaluation/datasets/questions.json`, iterate its `follow_ups` within that same thread so
-  they actually test multi-turn behavior instead of running standalone. This also resolves the
-  `run_dir` collision `todo.md` flags, once trace output is scoped per `thread_id`/turn as above.
+- [ ] `src/sparq/evaluation/batch.py` (~0.5 day): add conversation-aware evaluation with
+  one `thread_id` per top-level question in `evaluation/datasets/questions.json` and iterate
+  its `follow_ups` within that thread. Preserve the existing isolation between independent
+  runs and add turn-scoped output for follow-ups as described above.
 - [ ] Tests (~1 day): namespace path is stable across a simulated restart (fresh process-local
   `_ns_paths`, same file on disk); two sequential `run()` calls with the same `thread_id` show
   `messages` accumulating and turn 2's planner/aggregator prompts containing turn 1's content;
   step-namespace keys don't collide across turns; router prompt returns `False` for
   recall/clarification-style follow-ups and `True` for ones requiring new computation (example-based
-  unit tests against the rewritten prompt); end-to-end test against a `Q_dataset.json` entry with
+  unit tests against the rewritten prompt); end-to-end test against an `evaluation/datasets/questions.json` entry with
   `follow_ups`.
