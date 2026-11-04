@@ -52,6 +52,10 @@ class Agentic_system:
         vision_model: BaseChatModel = get_llm(
             model=llm_config.vision_model.model_name,
             provider=llm_config.vision_model.provider,
+            max_tokens=llm_config.vision_model.max_tokens,
+            temperature=llm_config.vision_model.temperature,
+            top_p=llm_config.vision_model.top_p,
+            top_k=llm_config.vision_model.top_k,
         )
         self.router_node_partial = partial(router_node, llm_config=llm_config.router, prompt=self.system_prompts['router_prompt'])
         self.planner_node_partial = partial(planner_node, llm_config=llm_config.planner, sys_prompt=self.system_prompts['planner_prompt'])

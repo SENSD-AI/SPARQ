@@ -20,7 +20,14 @@ def router_node(state: State, llm_config: LLMSetting, prompt: str):
     Route the user query to the appropriate node based on the type of query
     """
     with logger.contextualize(node="router"):
-        llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
+        llm = get_llm(
+            model=llm_config.model_name,
+            provider=llm_config.provider,
+            max_tokens=llm_config.max_tokens,
+            temperature=llm_config.temperature,
+            top_p=llm_config.top_p,
+            top_k=llm_config.top_k,
+        )
         structured_llm = llm.with_structured_output(Router)
         response = cast(Router, structured_llm.invoke([SystemMessage(content=prompt), HumanMessage(content=state.query)]))
 

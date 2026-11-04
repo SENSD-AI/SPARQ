@@ -19,7 +19,8 @@ node supplies an explicit no-results assistant message instead. A completed
 report is still a model-generated synthesis and requires scientific review.
 
 There is a current size-handling limitation: the aggregator counts formatted
-result tokens, but its over-budget `truncate_results()` branch is a stub. Long
+result tokens against a fixed 128,000-token input-results budget, separately from
+the model's `max_tokens` output cap. Its over-budget `truncate_results()` branch is a stub. Long
 results can therefore fail at that branch; automatic truncation is not an
 implemented safeguard.
 

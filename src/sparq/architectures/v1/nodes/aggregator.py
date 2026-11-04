@@ -16,8 +16,8 @@ from sparq.tools.filesystemtools import filesystemtools
 from sparq.tools.image_processing.image_analysis_tool import make_image_analysis_tool
 from sparq.utils.get_llm import get_llm
 
-# Used when llm_config.max_tokens is not set. LLMSetting has no per-model context
-# window field yet (see docs/improvements.md #13), so this is a conservative guess.
+# Input-results budget, independent of the model's max_tokens output limit.
+# There is no per-model context-window field yet, so this is a conservative guess.
 DEFAULT_CONTEXT_WINDOW = 128_000
 
 # cl100k_base is a reasonable proxy across providers; it's a local BPE tokenizer
@@ -73,10 +73,10 @@ async def aggregator_node(
         if not results:
             return {'messages': [AIMessage(content='[AGGREGATOR]: There are no results to return')]}
 
-        max_tokens = llm_config.max_tokens or DEFAULT_CONTEXT_WINDOW
+        max_input_tokens = DEFAULT_CONTEXT_WINDOW
         execution_results = format_results(results)
-        if count_tokens(execution_results) > max_tokens:
-            results = truncate_results(results, max_tokens)
+        if count_tokens(execution_results) > max_input_tokens:
+            results = truncate_results(results, max_input_tokens)
             execution_results = format_results(results)
 
         system_prompt_template: BasePromptTemplate = PromptTemplate.from_template(prompt).partial(
@@ -87,7 +87,14 @@ async def aggregator_node(
 
         system_prompt_str: str = system_prompt_template.invoke(input={}).to_string()
 
-        llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
+        llm = get_llm(
+            model=llm_config.model_name,
+            provider=llm_config.provider,
+            max_tokens=llm_config.max_tokens,
+            temperature=llm_config.temperature,
+            top_p=llm_config.top_p,
+            top_k=llm_config.top_k,
+        )
         artifact_tools = ArtifactTools(working_dir, index_name='executor/index.json')
         agent = create_agent(
             model=llm,

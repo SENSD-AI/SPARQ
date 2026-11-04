@@ -100,10 +100,11 @@ class ENVSettings(BaseSettings):
 class LLMSetting(BaseModel):
     provider: str
     model_name: str = Field(..., alias="model")
-    max_tokens: Optional[int] = None
-    temperature: Optional[float] = None
-    top_p: Optional[float] = None
-    reasoning: Optional[Literal[1, 0]] = None
+    max_tokens: int | None = None
+    temperature: float | None = None
+    top_p: float | None = None
+    top_k: int | None = None
+    effort: Literal["low", "medium", "high", "xhigh"] | None = None
     recursion_limit: int = Field(DEFAULT_RECURSION_LIMIT, ge=0, le=200, description="Maximum number of steps it takes to walk from graph root to terminal leaf")
 
 class BaseLLMSettings(BaseModel):

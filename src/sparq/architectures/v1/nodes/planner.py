@@ -25,7 +25,14 @@ def planner_node(state: State, llm_config: LLMSetting, sys_prompt: str):
     with logger.contextualize(node="planner"):
         logger.info("Making a plan to answer your query")
 
-        llm = get_llm(model=llm_config.model_name, provider=llm_config.provider)
+        llm = get_llm(
+            model=llm_config.model_name,
+            provider=llm_config.provider,
+            max_tokens=llm_config.max_tokens,
+            temperature=llm_config.temperature,
+            top_p=llm_config.top_p,
+            top_k=llm_config.top_k,
+        )
 
         # load data context
         data_context = load_data_context(DATA_MANIFEST_PATH, DATA_SUMMARIES_SHORT_PATH)

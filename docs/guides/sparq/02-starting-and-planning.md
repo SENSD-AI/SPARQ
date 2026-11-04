@@ -20,6 +20,15 @@ V1 settings combine the packaged defaults, checkout `config_v1.toml`, and user
 selects the router, planner, executor, aggregator, and vision models, along with
 prompt and output paths. Prompts are loaded when the system instance is created.
 
+Every v1 model-construction call forwards configured `max_tokens`, `temperature`,
+`top_p`, and `top_k` as explicit arguments, including for the shared vision model.
+Defaults come from the resolved configuration; `get_llm()` does not inject its
+own generation defaults and omits any options that are still `None`.
+Explicit zero values are preserved. `max_tokens`
+limits one generated response, while `recursion_limit` controls agent graph steps.
+Sampling support depends on the selected provider and model. The existing `effort`
+setting is not forwarded by this generation-options path.
+
 `PathSettings` derives a timestamped `run_dir` when settings are constructed.
 Its parent is `output_dir`, whose default is `~/tmp/sparq/output`; an optional
 `output_stem` prefixes the timestamp. This matters later: calling `run()` again

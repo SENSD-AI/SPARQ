@@ -63,7 +63,8 @@ class TestImageAnalysisIntegration(unittest.IsolatedAsyncioTestCase):
         self.vision_model = Mock(spec=BaseChatModel)
         self.vision_model.with_structured_output.return_value = RunnableLambda(inspect)
         self.config = LLMSetting(
-            model="test-model", provider="openai", recursion_limit=25
+            model="test-model", provider="aws_bedrock", recursion_limit=25,
+            max_tokens=1024, temperature=0, top_p=0.9, top_k=40,
         )
         self.result = StepResult(
             id=1, step="Inspect plot", success=True, execution_results="", misc=""
@@ -141,7 +142,7 @@ class TestImageAnalysisIntegration(unittest.IsolatedAsyncioTestCase):
         )
         state = State(query="Inspect plot", completed_plan_steps=[])
         with (
-            patch.object(executor, "get_llm", return_value=self.agent_model),
+            patch.object(executor, "get_llm", return_value=self.agent_model) as get_worker_model,
             patch.object(executor, "get_ns_path", return_value="test-namespace"),
             patch.object(
                 executor, "merge_namespaces_of_previous_deps", return_value=(0, "")
@@ -163,6 +164,10 @@ class TestImageAnalysisIntegration(unittest.IsolatedAsyncioTestCase):
                 vision_model=self.vision_model,
             )
         self.assertTrue(output["results"][0].success)
+        get_worker_model.assert_called_once_with(
+            model="test-model", provider="aws_bedrock", max_tokens=1024,
+            temperature=0, top_p=0.9, top_k=40,
+        )
         self.assertTrue(self.messages, "Worker must reach the image model")
         self.agent_model.with_structured_output.assert_not_called()
 
@@ -186,8 +191,9 @@ class TestImageAnalysisIntegration(unittest.IsolatedAsyncioTestCase):
             return SimpleNamespace(ainvoke=invoke)
 
         with (
-            patch.object(aggregator, "get_llm", return_value=self.agent_model),
-            patch.object(aggregator, "count_tokens", return_value=1),
+            patch.object(aggregator, "get_llm", return_value=self.agent_model) as get_aggregator_model,
+            patch.object(aggregator, "count_tokens", return_value=2048),
+            patch.object(aggregator, "truncate_results") as truncate,
             patch.object(aggregator, "filesystemtools", return_value=[]),
             patch.object(aggregator, "create_agent", side_effect=create_agent),
         ):
@@ -203,6 +209,11 @@ class TestImageAnalysisIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(output, {"messages": [final_message]})
         self.assertIs(output["messages"][0], final_message)
         self.agent_model.with_structured_output.assert_not_called()
+        truncate.assert_not_called()
+        get_aggregator_model.assert_called_once_with(
+            model="test-model", provider="aws_bedrock", max_tokens=1024,
+            temperature=0, top_p=0.9, top_k=40,
+        )
 
     async def test_aggregator_records_no_results_as_assistant_message(self):
         output = await aggregator.aggregator_node(
@@ -259,6 +270,7 @@ class TestImageAnalysisIntegration(unittest.IsolatedAsyncioTestCase):
 
     async def test_system_builds_graph_without_loading_image_prompt(self):
         system = Mock(spec=Agentic_system)
+        system.run_dir = self.root
         system.system_prompts = self.prompts
         system.settings = SimpleNamespace(
             paths=SimpleNamespace(run_dir=self.root),
@@ -277,7 +289,8 @@ class TestImageAnalysisIntegration(unittest.IsolatedAsyncioTestCase):
         ) as get_vision_model:
             Agentic_system._get_node_definitions(system)
         get_vision_model.assert_called_once_with(
-            model="vision-model", provider="openai"
+            model="vision-model", provider="aws_bedrock", max_tokens=1024,
+            temperature=0, top_p=0.9, top_k=40,
         )
         Agentic_system._build_graph(system)
         self.assertIn("aggregator", system.graph.nodes)

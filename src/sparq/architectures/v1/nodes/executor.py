@@ -216,7 +216,14 @@ async def execute_single_step_worker(
         logger.warning(f"[Worker Agent] step {step.id}: {num_vars} variables inherited from dependencies, exceeds {MAX_NAMESPACE_VARS_WARNING} — risk of context bloat.")
 
     # Create Deep Agent
-    llm_object = get_llm(llm_config.model_name, llm_config.provider)
+    llm_object = get_llm(
+        model=llm_config.model_name,
+        provider=llm_config.provider,
+        max_tokens=llm_config.max_tokens,
+        temperature=llm_config.temperature,
+        top_p=llm_config.top_p,
+        top_k=llm_config.top_k,
+    )
     data_context = state.data_context
     artifact_tools = ArtifactTools(output_dir)
     _tools = [
@@ -291,7 +298,14 @@ async def test_executor(plan: Plan):
     assert run_dir is not None
     state = State(query="", route=None, plan=plan, data_context=data_context)
     vision_config = system_settings.llm_config.vision_model
-    vision_model = get_llm(model=vision_config.model_name, provider=vision_config.provider)
+    vision_model = get_llm(
+        model=vision_config.model_name,
+        provider=vision_config.provider,
+        max_tokens=vision_config.max_tokens,
+        temperature=vision_config.temperature,
+        top_p=vision_config.top_p,
+        top_k=vision_config.top_k,
+    )
     response = await executor_node(state=state, config={"configurable": {"run_id": "test"}}, llm_config=system_settings.llm_config.executor, worker_prompt=prompt, output_dir=run_dir, vision_model=vision_model)
 
     for result in response['results']:

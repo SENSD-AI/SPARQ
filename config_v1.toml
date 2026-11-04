@@ -3,6 +3,7 @@
 [llm_config.router]
 model = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 provider = "aws_bedrock"
+max_tokens = 10000
 
 [llm_config.planner]
 model = "us.anthropic.claude-sonnet-5"
