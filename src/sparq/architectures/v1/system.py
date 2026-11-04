@@ -2,21 +2,23 @@ import datetime
 import uuid
 from functools import partial
 from pathlib import Path
+from typing import Any
+import json
 
 import pydantic_core
-from langgraph.graph import END, START, StateGraph
-from langgraph.types import RetryPolicy
+from pydantic_core import to_jsonable_python
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage
+from langgraph.graph import END, START, StateGraph
+from langgraph.types import RetryPolicy
 
 from sparq.architectures.v1.nodes.aggregator import aggregator_node
 from sparq.architectures.v1.nodes.executor import executor_node
 from sparq.architectures.v1.nodes.planner import planner_node
 from sparq.architectures.v1.nodes.router import router_func, router_node
 from sparq.architectures.v1.nodes.saver import saver_node
-
 from sparq.architectures.v1.settings import V1Settings
-from sparq.logging_config import logger, run_log_context
+from sparq.logging_config import run_log_context
 from sparq.schemas.runs import EvaluationContext, SystemOutput
 from sparq.schemas.state import State
 from sparq.tools.python_repl.namespace import cleanup_run
@@ -31,6 +33,9 @@ class Agentic_system:
         # Get system prompts
         self.prompts_dir = self.settings.paths.prompts_dir
         self.system_prompts = self._load_prompts(self.prompts_dir)
+        run_dir = self.settings.paths.run_dir
+        assert run_dir is not None
+        self.run_dir = run_dir
 
     def _load_prompts(self, prompts_dir: Path) -> dict:
         return {
@@ -42,7 +47,7 @@ class Agentic_system:
 
     def _get_node_definitions(self):
         llm_config = self.settings.llm_config
-        run_dir = self.settings.paths.run_dir
+        run_dir = self.run_dir
         run_dir.mkdir(parents=True, exist_ok=True)
         vision_model: BaseChatModel = get_llm(
             model=llm_config.vision_model.model_name,
@@ -69,7 +74,7 @@ class Agentic_system:
     def _build_graph(self):
         graph_init = StateGraph(state_schema=State)
         graph_init.add_node("router", self.router_node_partial)
-        graph_init.add_node(
+        graph_init.add_node( # TODO: Fix this pylance error
             "planner",
             self.planner_node_partial,
             retry=RetryPolicy(
@@ -90,6 +95,13 @@ class Agentic_system:
         
         self.graph = graph_init.compile()
 
+    def _log_graph_event(self, chunk: dict[str, Any]) -> None:
+        """Append one outer or nested graph event to the run's JSONL file."""
+        events_path = self.run_dir / "events.jsonl"
+        event = to_jsonable_python(chunk, by_alias=False)
+        with events_path.open("a", encoding="utf-8") as events_file:
+            events_file.write(json.dumps(event) + "\n")
+
     async def run(
         self,
         user_query: str,
@@ -105,28 +117,39 @@ class Agentic_system:
         if not run_id:
             run_id = str(uuid.uuid4())
 
-        run_dir = self.settings.paths.run_dir
-        assert run_dir is not None
-
         input_data = {
             "query": user_query,
             "question_asked_at": question_asked_at,
             "messages": [HumanMessage(content=user_query)],
         }
-        with run_log_context(run_dir, run_id):
+        state_values: State | None = None
+        with run_log_context(self.run_dir, run_id):
+            t0 = datetime.datetime.now()
             try:
-                t0 = datetime.datetime.now()
-                async for state_values in self.graph.astream(input=input_data,
-                                                    config={"configurable": {"run_id": run_id}},
-                                                    stream_mode="values"):
-                    logger.debug(state_values)
-                    write_json(run_dir, 'trace.json', state_values)
+                # LangGraph 1.2.8's v2 mapper coerces nested values into the root schema.
+                async for namespace, mode, data in self.graph.astream(
+                    input=input_data,
+                    config={"configurable": {"run_id": run_id}},
+                    stream_mode=["values", "updates"],
+                    subgraphs=True,
+                    version="v1",
+                ):
+                    event = {"type": mode, "ns": namespace, "data": data}
+                    self._log_graph_event(event)
+
+                    # Nested agents have their own state; retain only the root state.
+                    if mode == "values" and not namespace:
+                        state_values = State.model_validate(data)
+                        write_json(self.run_dir, "trace.json", state_values)
             finally:
                 cleanup_run(run_id)
                 tf = datetime.datetime.now()
                 duration = (tf - t0).total_seconds()
 
-        final_message = state_values['messages'][-1]
+        if state_values is None:
+            raise ValueError("Run completed without an outer graph state.")
+
+        final_message = state_values.messages[-1]
         if not isinstance(final_message, AIMessage):
             raise ValueError("Run completed without a final assistant response.")
 
@@ -147,6 +170,6 @@ class Agentic_system:
             sparq_judge_score=None,
         )
 
-        write_json(run_dir, 'result.json', result)
+        write_json(self.run_dir, 'result.json', result)
 
         return result

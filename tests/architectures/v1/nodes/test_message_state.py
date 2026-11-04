@@ -70,6 +70,7 @@ class TestSingleRunMessageExport(unittest.IsolatedAsyncioTestCase):
             system.settings = SimpleNamespace(
                 paths=SimpleNamespace(run_dir=root), llm_config=llm_config,
             )
+            system.run_dir = root
             system.system_prompts = {
                 "router_prompt": "Route the request",
                 "planner_prompt": "Plan",
@@ -110,6 +111,109 @@ class TestSingleRunMessageExport(unittest.IsolatedAsyncioTestCase):
             result = json.loads((root / "result.json").read_text())
             self.assertEqual(result["response"], "A direct answer")
             self.assertEqual(result["run_id"], "test-run")
+
+    async def test_nested_events_are_saved_without_replacing_outer_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            system = Agentic_system.__new__(Agentic_system)
+            system.run_dir = root
+            llm_config = Mock()
+            llm_config.model_dump.return_value = {}
+            system.settings = SimpleNamespace(llm_config=llm_config)
+            outer_state = State(query="A question", messages=[AIMessage(content="Outer answer")])
+            chunks = [
+                {"type": "values", "ns": (), "data": outer_state},
+                {
+                    "type": "updates",
+                    "ns": ("executor:worker-1",),
+                    "data": {"model": {"messages": [AIMessage(content="Worker answer")]}},
+                },
+                {
+                    "type": "values",
+                    "ns": ("executor:worker-1",),
+                    "data": {"messages": [AIMessage(content="Worker answer")]},
+                },
+                {
+                    "type": "values",
+                    "ns": ("aggregator:agent-1",),
+                    "data": {"messages": [AIMessage(content="Aggregator draft")]},
+                },
+            ]
+
+            async def stream_events():
+                for chunk in chunks:
+                    yield chunk["ns"], chunk["type"], chunk["data"]
+                    if chunk["ns"]:
+                        trace = json.loads((root / "trace.json").read_text())
+                        self.assertEqual(trace["messages"][-1]["content"], "Outer answer")
+
+            system.graph = Mock()
+            system.graph.astream.return_value = stream_events()
+            with (
+                patch.object(system, "_get_node_definitions"),
+                patch.object(system, "_build_graph"),
+                patch("sparq.architectures.v1.system.cleanup_run") as cleanup,
+            ):
+                output = await system.run("A question", run_id="nested-test")
+
+            events = [
+                json.loads(line)
+                for line in (root / "events.jsonl").read_text().splitlines()
+            ]
+            self.assertEqual(len(events), 4)
+            self.assertEqual(
+                [event["ns"] for event in events],
+                [[], ["executor:worker-1"], ["executor:worker-1"], ["aggregator:agent-1"]],
+            )
+            self.assertEqual(
+                events[1]["data"]["model"]["messages"][0]["content"], "Worker answer"
+            )
+            self.assertEqual(output.response, "Outer answer")
+            result = json.loads((root / "result.json").read_text())
+            self.assertEqual(result["response"], "Outer answer")
+            cleanup.assert_called_once_with("nested-test")
+
+    async def test_real_nested_graph_with_different_state_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            worker = StateGraph(dict)
+            worker.add_node("model", lambda state: {"messages": [AIMessage(content="Worker answer")]})
+            worker.add_edge(START, "model")
+            worker.add_edge("model", END)
+            worker_graph = worker.compile()
+
+            async def executor(state: State):
+                await worker_graph.ainvoke({"messages": [HumanMessage(content="Worker task")]})
+                return {"completed_plan_steps": [1]}
+
+            graph = StateGraph(State)
+            graph.add_node("executor", executor)
+            graph.add_node("aggregator", lambda state: {"messages": [AIMessage(content="Outer answer")]})
+            graph.add_edge(START, "executor")
+            graph.add_edge("executor", "aggregator")
+            graph.add_edge("aggregator", END)
+
+            system = Agentic_system.__new__(Agentic_system)
+            system.run_dir = root
+            llm_config = Mock()
+            llm_config.model_dump.return_value = {}
+            system.settings = SimpleNamespace(llm_config=llm_config)
+            system.graph = graph.compile()
+            with (
+                patch.object(system, "_get_node_definitions"),
+                patch.object(system, "_build_graph"),
+                patch("sparq.architectures.v1.system.cleanup_run"),
+            ):
+                output = await system.run("A question", run_id="real-nested-test")
+
+            events = [json.loads(line) for line in (root / "events.jsonl").read_text().splitlines()]
+            nested_values = [event for event in events if event["ns"] and event["type"] == "values"]
+            self.assertTrue(nested_values)
+            self.assertTrue(all("query" not in event["data"] for event in nested_values))
+            self.assertEqual(output.response, "Outer answer")
+            trace = json.loads((root / "trace.json").read_text())
+            self.assertEqual(trace["query"], "A question")
+            self.assertEqual(trace["messages"][-1]["content"], "Outer answer")
 
 
 if __name__ == "__main__":
