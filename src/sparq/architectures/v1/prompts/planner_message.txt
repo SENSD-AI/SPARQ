@@ -12,6 +12,7 @@ Return your plan AND your needs (further info you think you need) as a JSON-comp
 think you need to make a better plan.
 
 Each step **must adhere to the following schema**:
+- `id` (int): A unique positive step ID, numbered in execution order starting at 1.
 - `step_description` (str): A detailed description of what should be done in the step.
 - `datasets` (list of str): The datasets relevant to the step.
 - `rationale` (str): The reason why this step is necessary.
@@ -25,6 +26,15 @@ Each step **must adhere to the following schema**:
   - `correlation`
   - `ranking`
   - `visualization`
+- `dependencies` (list of int): Explicitly list the IDs of earlier steps whose outputs this step requires. Include this field for every step; use `[]` only when the step can start immediately without any other step's results.
+
+Execution and dependency rules:
+- Steps with no dependencies run in parallel immediately. Listing a step later in the plan, or mentioning an earlier step in its description, does not make it wait.
+- A step receives results and available Python variables from its declared dependencies. Declare every earlier step whose output it needs; do not assume an undeclared step's results will be available.
+- Independent data-loading steps may have `dependencies: []`. Aggregation must depend on the step that prepares its input; a join must depend on both input-producing steps; analysis and plotting must depend on the step that creates their analytic dataset; interpretation must depend on the results it interprets.
+- For example: step 1 loads and filters isolate records (`[]`); step 2 aggregates those records (`[1]`); step 3 loads vulnerability data (`[]`); step 4 joins the two datasets (`[2, 3]`); steps 5 and 6 analyze and plot the joined data (`[4]` each); step 7 interprets both outputs (`[5, 6]`).
+- Reference only existing earlier step IDs. Do not include self-dependencies or cycles, and do not serialize independent steps unnecessarily.
+- Before returning the plan, check each step's required inputs against its dependency list. Any required output from another step must have an explicit dependency; never leave all lists empty when the plan contains dependent work.
 
 Besides the steps, write a detailed paragraph about your 'wants' (str), stating what further information you need to 
 make a better plan.
