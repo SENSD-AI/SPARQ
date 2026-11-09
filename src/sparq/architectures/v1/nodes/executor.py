@@ -118,6 +118,8 @@ async def executor_node(
     with logger.contextualize(node="executor"):
         logger.info("Executing plan to answer your query...")
         output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Set path to artifact index. Create if it doesn't exist yet.
         index_path = output_dir / INDEX_FNAME
         if not index_path.exists():
             index_path.write_text(Index().model_dump_json(indent=4))
@@ -132,6 +134,7 @@ async def executor_node(
             # Stage 1: Add steps that are ready to be executed to a list
             ready_steps: List[Step] = []
 
+            # Skip completed steps
             for step in plan.steps:
                 if step.id in completed:
                     continue
@@ -172,6 +175,7 @@ async def executor_node(
             # Step 4: Organize produced artifacts
             new_artifacts = organize(output_dir) or []
 
+            # If successful, add results to list of completed results
             for result in batch_results:
                 if result.success:
                     completed.add(result.id)

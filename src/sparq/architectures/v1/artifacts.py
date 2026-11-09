@@ -63,47 +63,50 @@ def organize(working_dir: Path) -> list[Path] | None:
     if new_artifacts:
         return new_artifacts
 
+def versioned_path(filename: str | Path) -> Path:
+    """Return the a versioned file name."""
+    path = Path(filename)
+    version = 1
+
+    while True:
+        candidate = path.with_stem(f"{path.stem}_v{version}")
+        if not candidate.exists():
+            return candidate
+        version += 1
+
 
 def organize_artifact(index: Index, artifact_path: Path, working_dir: Path) -> Path:
-    """Move a relative artifact path into its category and update Index in memory.
+    """Move an artifact into its category, versioning filename collisions.
 
-    Paths stored in Index are relative to working_dir.
+    Store and return the final path relative to working_dir.
     """
     suffix = artifact_path.suffix.lower()
     if suffix in FIGURE_FTYPES:
-        category = "figures"
-        subindex_letter = "f"
-        indexed_artifacts = index.figures
+        category, id_prefix, indexed_artifacts = "figures", "f", index.figures
     elif suffix in TABULAR_FTYPES:
-        category = "tables"
-        subindex_letter = "t"
-        indexed_artifacts = index.tables
+        category, id_prefix, indexed_artifacts = "tables", "t", index.tables
     elif suffix in DOC_FTYPES:
-        category = "docs"
-        subindex_letter = "d"
-        indexed_artifacts = index.docs
+        category, id_prefix, indexed_artifacts = "docs", "d", index.docs
     else:
-        category = "other"
-        subindex_letter = "o"
-        indexed_artifacts = index.other
+        category, id_prefix, indexed_artifacts = "other", "o", index.other
 
     source = working_dir / artifact_path
-    relative_destination = Path(category) / artifact_path.name
-    destination = working_dir / relative_destination
+    destination = working_dir / category / artifact_path.name
 
     if source != destination:
         if destination.exists():
-            raise FileExistsError(f"Cannot overwrite existing artifact: {destination}")
+            destination = versioned_path(destination)
         destination.parent.mkdir(parents=True, exist_ok=True)
         source.rename(destination)
 
-    if relative_destination not in indexed_artifacts.values():
-        if indexed_artifacts:
-            latest_subindex = list(indexed_artifacts.keys())[-1]
-            latest_subindex_number = int(latest_subindex[1:])
-        else:
-            latest_subindex_number = 0
-        new_subindex = subindex_letter + str(latest_subindex_number + 1)
-        indexed_artifacts[new_subindex] = relative_destination
+    relative_destination = destination.relative_to(working_dir)
+    if relative_destination in indexed_artifacts.values():
+        return relative_destination
+
+    next_id = 1
+    if indexed_artifacts:
+        last_id = list(indexed_artifacts)[-1]
+        next_id = int(last_id[1:]) + 1
+    indexed_artifacts[f"{id_prefix}{next_id}"] = relative_destination
 
     return relative_destination
