@@ -27,6 +27,6 @@ provider = "google_genai"
 max_tokens = 100000
 
 [llm_config.vision_model]
-model = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+model = "us.anthropic.claude-sonnet-5-5"
 provider = "aws_bedrock"
-max_tokens = 100000
+max_tokens = 64000
