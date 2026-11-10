@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import boto3
 from langchain_aws import ChatBedrockConverse
@@ -21,6 +21,7 @@ with patch("tiktoken.get_encoding", return_value=Mock(encode=lambda text: list(t
 
 from sparq.architectures.v1.artifacts import Index
 from sparq.schemas.planning import Plan, Step, StepResult
+from sparq.schemas.report import Report
 from sparq.schemas.state import State
 from sparq.settings import LLMSetting
 from sparq.tools.image_processing import image_analysis_tool
@@ -179,7 +180,7 @@ class TestImageAnalysisIntegration(unittest.IsolatedAsyncioTestCase):
 
             async def invoke(*args, **invoke_kwargs):
                 await self.inspect_registered_tool(kwargs["tools"])
-                return {"messages": [
+                return {"structured_response": Report(report=final_message.text, done=True), "messages": [
                     HumanMessage(content="Write the final report now."),
                     AIMessage(content="", tool_calls=[{
                         "name": "analyze_image", "args": {}, "id": "image-1",
@@ -206,8 +207,8 @@ class TestImageAnalysisIntegration(unittest.IsolatedAsyncioTestCase):
                 working_dir=self.root,
                 vision_model=self.vision_model,
             )
-        self.assertEqual(output, {"messages": [final_message]})
-        self.assertIs(output["messages"][0], final_message)
+        self.assertEqual(output["messages"][0].text, final_message.text)
+        self.assertEqual((self.root / "report/draft.md").read_text(), final_message.text + "\n")
         self.agent_model.with_structured_output.assert_not_called()
         truncate.assert_not_called()
         get_aggregator_model.assert_called_once_with(
@@ -217,7 +218,7 @@ class TestImageAnalysisIntegration(unittest.IsolatedAsyncioTestCase):
 
     async def test_aggregator_records_no_results_as_assistant_message(self):
         output = await aggregator.aggregator_node(
-            state=State(query="Inspect plot"),
+            state=State(query="Inspect plot", completed_plan_steps=[]),
             llm_config=self.config,
             prompt=self.prompts["aggregator_prompt"],
             working_dir=self.root,
@@ -247,7 +248,10 @@ class TestImageAnalysisIntegration(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertEqual(matches, paths)
                 self.assertTrue((self.root / paths[0]).is_file())
-                return {"messages": [AIMessage(content="Indexed report")]}
+                return {
+                    "messages": [AIMessage(content="Indexed report")],
+                    "structured_response": Report(report="Indexed report", done=True),
+                }
 
             return SimpleNamespace(ainvoke=invoke)
 
@@ -267,6 +271,125 @@ class TestImageAnalysisIntegration(unittest.IsolatedAsyncioTestCase):
                 vision_model=self.vision_model,
             )
         self.assertEqual(output["messages"][0].text, "Indexed report")
+
+    async def run_report_chunks(self, responses):
+        """Exercise the aggregator with scripted structured responses."""
+        agent = SimpleNamespace(ainvoke=AsyncMock(side_effect=responses))
+        with (
+            patch.object(aggregator, "get_llm", return_value=self.agent_model),
+            patch.object(aggregator, "count_tokens", return_value=1),
+            patch.object(aggregator, "filesystemtools", return_value=[]),
+            patch.object(aggregator, "create_agent", return_value=agent),
+        ):
+            output = await aggregator.aggregator_node(
+                state=State(query="Inspect plot", results=[self.result], completed_plan_steps=[]),
+                llm_config=self.config,
+                prompt=self.prompts["aggregator_prompt"],
+                working_dir=self.root,
+                vision_model=self.vision_model,
+            )
+        return output, agent
+
+    async def test_aggregator_accumulates_sections_and_retains_evidence_context(self):
+        first = Report(report="# Report\n\n## Findings\nSupported finding.", done=False)
+        second = Report(report="## Conclusion\nQualified answer.", done=True)
+        evidence = ToolMessage(content="Verified source data", tool_call_id="read-1")
+        history = [
+            HumanMessage(content="Write first section"),
+            AIMessage(content="", tool_calls=[{"name": "read_file", "args": {}, "id": "read-1"}]),
+            evidence,
+            AIMessage(content=first.model_dump_json()),
+        ]
+        output, agent = await self.run_report_chunks([
+            {"messages": history, "structured_response": first},
+            {"messages": [AIMessage(content=second.model_dump_json())], "structured_response": second},
+        ])
+        expected = first.report + "\n\n" + second.report
+        self.assertEqual(output["messages"][0].text, expected)
+        self.assertEqual((self.root / "report/draft.md").read_text(), expected + "\n")
+        continuation = agent.ainvoke.call_args_list[1].args[0]["messages"]
+        self.assertEqual(continuation[:-1], history)
+        self.assertIn("Return only new text", continuation[-1].content)
+        self.assertIn("set done=true", continuation[-1].content)
+        self.assertFalse((self.root / "report/report.pdf").exists())
+
+    async def test_aggregator_preserves_draft_when_later_call_fails(self):
+        first = Report(report="# Saved section", done=False)
+        with self.assertRaisesRegex(RuntimeError, "Provider failed"):
+            await self.run_report_chunks([
+                {"messages": [AIMessage(content="Section")], "structured_response": first},
+                RuntimeError("Provider failed"),
+            ])
+        self.assertEqual((self.root / "report/draft.md").read_text(), first.report + "\n")
+
+    async def test_aggregator_rejects_empty_or_repeated_sections(self):
+        first = Report(report="# Saved section", done=False)
+        for section in ("   ", first.report):
+            with self.subTest(section=section), self.assertRaisesRegex(ValueError, "no progress"):
+                await self.run_report_chunks([
+                    {"messages": [AIMessage(content="Section")], "structured_response": first},
+                    {"messages": [AIMessage(content="Section")],
+                     "structured_response": Report(report=section, done=True)},
+                ])
+            self.assertEqual((self.root / "report/draft.md").read_text(), first.report + "\n")
+
+    async def test_aggregator_does_not_accept_truncated_completion(self):
+        with self.assertRaisesRegex(ValueError, "truncated"):
+            await self.run_report_chunks([{
+                "messages": [AIMessage(content="Partial", response_metadata={"stopReason": "max_tokens"})],
+                "structured_response": Report(report="Partial", done=True),
+            }])
+        self.assertFalse((self.root / "report/draft.md").exists())
+
+    async def test_aggregator_stops_at_section_limit_without_claiming_completion(self):
+        with patch.object(aggregator, "MAX_REPORT_CHUNKS", 2):
+            with self.assertRaisesRegex(ValueError, "did not finish within 2"):
+                await self.run_report_chunks([
+                    {"messages": [AIMessage(content="Section")],
+                     "structured_response": Report(report=section, done=False)}
+                    for section in ("# Report", "## Findings")
+                ])
+        self.assertEqual((self.root / "report/draft.md").read_text(), "# Report\n\n## Findings\n")
+
+    async def test_aggregator_continues_through_real_agent_and_bedrock_adapter(self):
+        client = boto3.client(
+            "bedrock-runtime", region_name="us-east-1",
+            aws_access_key_id="test", aws_secret_access_key="test",
+        )
+        model = ChatBedrockConverse(
+            model="us.anthropic.claude-sonnet-4-5-20250929-v1:0", client=client
+        )
+        responses = [
+            {
+                "output": {"message": {"role": "assistant", "content": [{
+                    "toolUse": {"toolUseId": f"section-{index}", "name": "Report", "input": section}
+                }]}},
+                "stopReason": "tool_use",
+                "usage": {"inputTokens": 1, "outputTokens": 1, "totalTokens": 2},
+                "metrics": {"latencyMs": 1},
+            }
+            for index, section in enumerate([
+                {"report": "# Report\n\n## Findings\nVerified finding.", "done": False},
+                {"report": "## Conclusion\nQualified answer.", "done": True},
+            ])
+        ]
+        with (
+            patch.object(client, "converse", side_effect=responses) as converse,
+            patch.object(aggregator, "get_llm", return_value=model),
+            patch.object(aggregator, "count_tokens", return_value=1),
+        ):
+            output = await aggregator.aggregator_node(
+                state=State(query="Inspect plot", results=[self.result], completed_plan_steps=[]),
+                llm_config=self.config, prompt=self.prompts["aggregator_prompt"],
+                working_dir=self.root, vision_model=self.vision_model,
+            )
+        self.assertEqual(converse.call_count, 2)
+        self.assertEqual(
+            output["messages"][0].text,
+            "# Report\n\n## Findings\nVerified finding.\n\n## Conclusion\nQualified answer.",
+        )
+        second_request = converse.call_args_list[1].kwargs
+        self.assertIn("Verified finding.", json.dumps(second_request["messages"]))
 
     async def test_system_builds_graph_without_loading_image_prompt(self):
         system = Mock(spec=Agentic_system)
