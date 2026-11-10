@@ -13,7 +13,17 @@ read files, and analyze images through the vision model. It works from the run
 root, with the artifact index at `executor/index.json`; it does not receive a
 live merged Python namespace or the executor's Python tool.
 
-The agent writes the final assistant message into graph state. Its job is to
+The agent writes at its own pace across responses using the `Report` structured output:
+`report` contains only the new Markdown and `done` explicitly signals completion.
+Responses need not align with section boundaries. Each continuation retains earlier text and inspected evidence in the message
+history. Python saves the accumulated text to `report/draft.md` after each response,
+then assembles the final assistant message when `done` is true. The model does not
+regenerate the full report in one final response. Empty, repeated, or truncated
+chunks fail the run; a 20-response limit also prevents endless continuation.
+Saved draft text remains available if a later invocation fails; drafts
+are not automatically resumed or treated as final reports.
+
+The node writes the assembled assistant message into graph state. Its job is to
 explain the findings and limitations coherently. If there are no results, the
 node supplies an explicit no-results assistant message instead. A completed
 report is still a model-generated synthesis and requires scientific review.
@@ -23,6 +33,8 @@ result tokens against a fixed 128,000-token input-results budget, separately fro
 the model's `max_tokens` output cap. Its over-budget `truncate_results()` branch is a stub. Long
 results can therefore fail at that branch; automatic truncation is not an
 implemented safeguard.
+Writing across responses avoids a single-response output cap for the whole
+report, but the retained conversation must still fit the model's input context.
 
 ## Stage 6: save the answer and render its report
 
